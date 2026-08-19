@@ -1,0 +1,10 @@
+.vs/
+**/bin/
+**/obj/
+dist/
+artifacts/
+TestResults/
+*.user
+*.suo
+*.backup-*
+FoodBuffOverlay.update-*.log

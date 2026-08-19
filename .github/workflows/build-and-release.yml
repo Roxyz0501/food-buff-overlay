@@ -1,0 +1,65 @@
+name: Build, test, and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  ACT_DOWNLOAD_URL: https://advancedcombattracker.com/download.php?id=57
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Download official ACT build dependency
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri $env:ACT_DOWNLOAD_URL -OutFile "$env:RUNNER_TEMP\ACTv3.zip"
+          Expand-Archive -LiteralPath "$env:RUNNER_TEMP\ACTv3.zip" -DestinationPath "$env:RUNNER_TEMP\ACTv3"
+      - name: Build release package
+        shell: pwsh
+        run: .\build.ps1 -Configuration Release -ActPath "$env:RUNNER_TEMP\ACTv3\Advanced Combat Tracker.exe"
+      - name: Run tests
+        shell: pwsh
+        run: .\tests\FoodBuffOverlay.Tests\bin\Release\net48\FoodBuffOverlay.Tests.exe
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Download official ACT build dependency
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri $env:ACT_DOWNLOAD_URL -OutFile "$env:RUNNER_TEMP\ACTv3.zip"
+          Expand-Archive -LiteralPath "$env:RUNNER_TEMP\ACTv3.zip" -DestinationPath "$env:RUNNER_TEMP\ACTv3"
+      - name: Build and test tagged source
+        shell: pwsh
+        run: |
+          .\build.ps1 -Configuration Release -ActPath "$env:RUNNER_TEMP\ACTv3\Advanced Combat Tracker.exe"
+          .\tests\FoodBuffOverlay.Tests\bin\Release\net48\FoodBuffOverlay.Tests.exe
+      - name: Verify tag, assembly, and asset versions
+        shell: pwsh
+        run: |
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          $dllVersion = [Reflection.AssemblyName]::GetAssemblyName("$PWD\src\FoodBuffOverlay\bin\Release\net48\FoodBuffOverlay.dll").Version.ToString(3)
+          if ($tagVersion -ne $dllVersion) { throw "Tag $tagVersion does not match DLL $dllVersion." }
+          if (-not (Test-Path -LiteralPath "$PWD\dist\FoodBuffOverlay-v$tagVersion.zip")) { throw "Release ZIP is missing." }
+          if (-not (Test-Path -LiteralPath "$PWD\dist\FoodBuffOverlay-v$tagVersion.sha256")) { throw "SHA-256 manifest is missing." }
+      - name: Publish stable GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME "dist\FoodBuffOverlay-$env:GITHUB_REF_NAME.zip" "dist\FoodBuffOverlay-$env:GITHUB_REF_NAME.sha256" --verify-tag --generate-notes --title "Food Buff Overlay $env:GITHUB_REF_NAME"
