@@ -42,6 +42,7 @@ namespace FoodBuffOverlay
         private readonly Label supportStatus = NewLabel();
         private readonly TabControl tabs = new TabControl();
         private readonly TabPage settingsTab = new TabPage();
+        private readonly TabPage updateTab = new TabPage();
         private readonly TabPage supportTab = new TabPage();
         private int hoveredTabIndex = -1;
         private bool loading = true;
@@ -80,16 +81,18 @@ namespace FoodBuffOverlay
             var header = BuildHeader();
             tabs.Dock = DockStyle.Fill;
             tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
-            tabs.ItemSize = new Size(118, 31);
-            tabs.SizeMode = TabSizeMode.Fixed;
-            tabs.Padding = new Point(18, 5);
+            tabs.Padding = new Point(18, 6);
             settingsTab.BackColor = Color.White;
             settingsTab.Padding = new Padding(4);
-            supportTab.BackColor = Color.FromArgb(255, 249, 239);
+            updateTab.BackColor = Color.White;
+            updateTab.Padding = new Padding(4);
+            supportTab.BackColor = Color.White;
             supportTab.Padding = new Padding(4);
             settingsTab.Controls.Add(BuildSettingsPanel());
+            updateTab.Controls.Add(BuildUpdatePanel());
             supportTab.Controls.Add(BuildSupportPanel());
             tabs.TabPages.Add(settingsTab);
+            tabs.TabPages.Add(updateTab);
             tabs.TabPages.Add(supportTab);
             tabs.DrawItem += DrawTab;
             tabs.MouseMove += OnTabsMouseMove;
@@ -133,7 +136,7 @@ namespace FoodBuffOverlay
         private Control BuildSettingsPanel()
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(20), AutoScroll = true };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 14 };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 9 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             AddWide(layout, enabled, 0); AddWide(layout, locked, 1); AddWide(layout, preview, 2);
@@ -145,13 +148,21 @@ namespace FoodBuffOverlay
             var languagePanel = Flow(); languagePanel.Controls.Add(language); languageHint.Margin = new Padding(8, 6, 0, 0); languagePanel.Controls.Add(languageHint); layout.Controls.Add(languagePanel, 1, 5);
             hint.ForeColor = Color.FromArgb(80, 80, 88); hint.Padding = new Padding(0, 9, 0, 4); AddWide(layout, hint, 6);
             connection.ForeColor = Color.FromArgb(42, 109, 158); connection.AutoSize = false; connection.Height = 30; AddWide(layout, connection, 7);
-            updateTitle.ForeColor = Color.FromArgb(178, 94, 16); AddWide(layout, updateTitle, 8);
-            AddWide(layout, checkStartup, 9);
-            var updateButtons = Flow(); StyleSecondary(checkNow); StylePrimary(updateNow); StyleSecondary(later); later.Visible = false;
-            updateButtons.Controls.Add(checkNow); updateButtons.Controls.Add(updateNow); updateButtons.Controls.Add(later); AddWide(layout, updateButtons, 10);
-            updateStatus.AutoSize = false; updateStatus.Height = 58; updateStatus.ForeColor = Color.FromArgb(73, 83, 98); AddWide(layout, updateStatus, 11);
-            authorVersion.ForeColor = Color.FromArgb(113, 126, 146); AddWide(layout, authorVersion, 12);
+            authorVersion.ForeColor = Color.FromArgb(113, 126, 146); AddWide(layout, authorVersion, 8);
             for (var i = 0; i < 3; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            panel.Controls.Add(layout);
+            return panel;
+        }
+
+        private Control BuildUpdatePanel()
+        {
+            var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(24), AutoScroll = true };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 4, Padding = new Padding(4) };
+            updateTitle.ForeColor = Color.FromArgb(34, 44, 61); updateTitle.Margin = new Padding(0, 0, 0, 14); layout.Controls.Add(updateTitle, 0, 0);
+            checkStartup.Margin = new Padding(0, 0, 0, 14); layout.Controls.Add(checkStartup, 0, 1);
+            var updateButtons = Flow(); StyleSecondary(checkNow); StylePrimary(updateNow); StyleSecondary(later); later.Visible = false;
+            updateButtons.Margin = new Padding(0, 0, 0, 12); updateButtons.Controls.Add(checkNow); updateButtons.Controls.Add(updateNow); updateButtons.Controls.Add(later); layout.Controls.Add(updateButtons, 0, 2);
+            updateStatus.AutoSize = false; updateStatus.Width = 700; updateStatus.Height = 150; updateStatus.ForeColor = Color.FromArgb(73, 83, 98); layout.Controls.Add(updateStatus, 0, 3);
             panel.Controls.Add(layout);
             return panel;
         }
@@ -160,13 +171,12 @@ namespace FoodBuffOverlay
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(255, 249, 239), Padding = new Padding(28), AutoScroll = true };
             var card = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6, BackColor = Color.White, Padding = new Padding(28, 23, 28, 24) };
-            supportHeading.ForeColor = Color.FromArgb(194, 112, 22); supportHeading.Margin = new Padding(0, 0, 0, 10); card.Controls.Add(supportHeading, 0, 0);
+            supportHeading.ForeColor = Color.FromArgb(166, 83, 15); supportHeading.Margin = new Padding(0, 0, 0, 10); card.Controls.Add(supportHeading, 0, 0);
             supportBody.MaximumSize = new Size(700, 0); supportBody.ForeColor = Color.FromArgb(61, 68, 79); supportBody.Margin = new Padding(0, 0, 0, 8); card.Controls.Add(supportBody, 0, 1);
             supportOptional.MaximumSize = new Size(700, 0); supportOptional.ForeColor = Color.FromArgb(117, 76, 24); supportOptional.Margin = new Padding(0, 0, 0, 18); card.Controls.Add(supportOptional, 0, 2);
-            supportButton.AutoSize = false; supportButton.Size = new Size(350, 54); supportButton.FlatStyle = FlatStyle.Flat; supportButton.BackColor = Color.FromArgb(224, 132, 31); supportButton.ForeColor = Color.White; supportButton.Cursor = Cursors.Hand; supportButton.Margin = new Padding(0, 0, 0, 10);
-            supportButton.FlatAppearance.BorderColor = Color.FromArgb(183, 96, 13); supportButton.FlatAppearance.BorderSize = 1;
-            supportButton.MouseEnter += delegate { supportButton.BackColor = Color.FromArgb(239, 151, 49); };
-            supportButton.MouseLeave += delegate { supportButton.BackColor = Color.FromArgb(224, 132, 31); };
+            supportButton.AutoSize = false; supportButton.Size = new Size(360, 50); supportButton.FlatStyle = FlatStyle.Flat; supportButton.BackColor = Color.FromArgb(202, 101, 20); supportButton.ForeColor = Color.White; supportButton.Cursor = Cursors.Hand; supportButton.Margin = new Padding(0, 0, 0, 10);
+            supportButton.FlatAppearance.BorderColor = Color.FromArgb(164, 79, 12); supportButton.FlatAppearance.BorderSize = 1;
+            supportButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(224, 126, 31); supportButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(174, 83, 13);
             card.Controls.Add(supportButton, 0, 3);
             var url = NewLabel(); url.Text = SupportUrl; url.ForeColor = Color.FromArgb(126, 104, 78); url.Margin = new Padding(1, 0, 0, 8); card.Controls.Add(url, 0, 4);
             supportStatus.ForeColor = Color.FromArgb(178, 62, 47); supportStatus.Margin = new Padding(0, 2, 0, 0); card.Controls.Add(supportStatus, 0, 5);
@@ -238,7 +248,7 @@ namespace FoodBuffOverlay
             ApplyFontFamily(this, family);
             headerTitle.Text = T("PluginTab"); headerSubtitle.Text = T("HeaderSubtitle");
             headerTitle.Font = new Font(family, 17f, FontStyle.Bold); headerSubtitle.Font = new Font(family, 8.5f);
-            tabs.Font = new Font(family, 9f, FontStyle.Bold); settingsTab.Text = T("TabSettings"); supportTab.Text = T("TabSupport");
+            tabs.Font = new Font(family, 9f, FontStyle.Bold); settingsTab.Text = T("TabSettings"); updateTab.Text = T("TabUpdate"); supportTab.Text = T("TabSupport");
             enabled.Text = T("Enabled"); locked.Text = T("Locked"); preview.Text = T("Preview");
             warningLabel.Text = T("WarningThreshold"); minuteSuffix.Text = T("MinutesSuffix"); opacityLabel.Text = T("Opacity");
             languageLabel.Text = T("Language"); languageHint.Text = T("LanguageHint"); hint.Text = T("Hint");
@@ -266,14 +276,14 @@ namespace FoodBuffOverlay
 
         private void DrawTab(object sender, DrawItemEventArgs e)
         {
-            var support = e.Index == 1; var selected = e.Index == tabs.SelectedIndex; var hovered = e.Index == hoveredTabIndex;
-            Color background, foreground;
-            if (support && selected) { background = Color.FromArgb(218, 126, 25); foreground = Color.White; }
-            else if (support && hovered) { background = Color.FromArgb(255, 225, 181); foreground = Color.FromArgb(139, 72, 13); }
-            else if (support) { background = Color.FromArgb(255, 243, 221); foreground = Color.FromArgb(178, 94, 16); }
-            else { background = selected ? Color.White : hovered ? Color.FromArgb(235, 239, 245) : Color.FromArgb(225, 230, 238); foreground = Color.FromArgb(48, 61, 80); }
+            var support = tabs.TabPages[e.Index] == supportTab; var selected = e.Index == tabs.SelectedIndex; var hovered = e.Index == hoveredTabIndex;
+            var background = selected ? Color.White : Color.FromArgb(240, 242, 245);
+            var foreground = Color.FromArgb(42, 53, 69);
+            if (support) { background = selected ? Color.FromArgb(255, 245, 226) : hovered ? Color.FromArgb(255, 238, 207) : Color.FromArgb(250, 231, 197); foreground = selected ? Color.FromArgb(137, 62, 7) : hovered ? Color.FromArgb(157, 72, 8) : Color.FromArgb(174, 84, 13); }
+            else if (hovered && !selected) background = Color.FromArgb(247, 248, 250);
             using (var brush = new SolidBrush(background)) e.Graphics.FillRectangle(brush, e.Bounds);
-            TextRenderer.DrawText(e.Graphics, tabs.TabPages[e.Index].Text, tabs.Font, e.Bounds, foreground, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(e.Graphics, tabs.TabPages[e.Index].Text, tabs.Font, e.Bounds, foreground, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
+            if (support && selected) using (var pen = new Pen(Color.FromArgb(213, 137, 32), 2f)) e.Graphics.DrawLine(pen, e.Bounds.Left + 4, e.Bounds.Bottom - 2, e.Bounds.Right - 4, e.Bounds.Bottom - 2);
         }
 
         private void OpenSupportLink(object sender, EventArgs e)
@@ -303,7 +313,7 @@ namespace FoodBuffOverlay
             switch (Localization.NormalizeLanguage(code)) { case Localization.Japanese: return 1; case Localization.Chinese: return 2; case Localization.Korean: return 3; default: return 0; }
         }
 
-        private static void StylePrimary(Button button) { button.AutoSize = true; button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.FromArgb(224, 132, 31); button.ForeColor = Color.White; button.FlatAppearance.BorderColor = Color.FromArgb(183, 96, 13); button.Padding = new Padding(10, 3, 10, 3); button.Visible = false; }
+        private static void StylePrimary(Button button) { button.AutoSize = true; button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.FromArgb(202, 101, 20); button.ForeColor = Color.White; button.FlatAppearance.BorderColor = Color.FromArgb(164, 79, 12); button.FlatAppearance.MouseOverBackColor = Color.FromArgb(224, 126, 31); button.FlatAppearance.MouseDownBackColor = Color.FromArgb(174, 83, 13); button.Padding = new Padding(10, 3, 10, 3); button.Visible = false; }
         private static void StyleSecondary(Button button) { button.AutoSize = true; button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.White; button.ForeColor = Color.FromArgb(63, 76, 95); button.FlatAppearance.BorderColor = Color.FromArgb(171, 181, 196); button.Padding = new Padding(10, 3, 10, 3); }
         private static CheckBox Check() => new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(48, 61, 80) };
         private static Label NewLabel() => new Label { AutoSize = true, Anchor = AnchorStyles.Left };

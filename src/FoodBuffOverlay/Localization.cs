@@ -18,7 +18,7 @@ namespace FoodBuffOverlay
                 [English] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["PluginTab"]="Food Buff Overlay", ["HeaderSubtitle"]="Shows food warnings only when needed",
-                    ["TabSettings"]="Settings", ["TabSupport"]="Support", ["Language"]="Language",
+                    ["TabSettings"]="Settings", ["TabUpdate"]="Updates", ["TabSupport"]="Support", ["Language"]="Language",
                     ["LanguageHint"]="Changes are applied immediately.", ["Enabled"]="Enable overlay",
                     ["Locked"]="Lock position and size (click-through)", ["Preview"]="Show positioning preview",
                     ["WarningThreshold"]="Warn when remaining time is", ["MinutesSuffix"]="minutes or less (default: 12)",
@@ -49,7 +49,7 @@ namespace FoodBuffOverlay
                 [Japanese] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["PluginTab"]="食事バフオーバーレイ", ["HeaderSubtitle"]="食事切れと残り時間を、必要なときだけ通知します",
-                    ["TabSettings"]="設定", ["TabSupport"]="支援", ["Language"]="言語",
+                    ["TabSettings"]="設定", ["TabUpdate"]="更新", ["TabSupport"]="支援", ["Language"]="言語",
                     ["LanguageHint"]="変更はすぐに反映されます。", ["Enabled"]="オーバーレイを有効にする",
                     ["Locked"]="位置とサイズを固定（クリック透過）", ["Preview"]="位置調整プレビューを表示する",
                     ["WarningThreshold"]="警告を表示する残り時間", ["MinutesSuffix"]="分以下（初期値 12分）",
@@ -79,7 +79,7 @@ namespace FoodBuffOverlay
                 [Chinese] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["PluginTab"]="食物增益悬浮窗", ["HeaderSubtitle"]="仅在需要时显示食物效果提醒",
-                    ["TabSettings"]="设置", ["TabSupport"]="支持", ["Language"]="语言", ["LanguageHint"]="更改会立即生效。",
+                    ["TabSettings"]="设置", ["TabUpdate"]="更新", ["TabSupport"]="支持", ["Language"]="语言", ["LanguageHint"]="更改会立即生效。",
                     ["Enabled"]="启用悬浮窗", ["Locked"]="锁定位置和大小（鼠标穿透）", ["Preview"]="显示位置调整预览",
                     ["WarningThreshold"]="剩余时间达到以下值时提醒", ["MinutesSuffix"]="分钟以下（默认 12 分钟）", ["Opacity"]="悬浮窗透明度",
                     ["Hint"]="不符合提醒条件时悬浮窗会完全隐藏。\r\n调整位置时请解除锁定、开启预览，然后拖动悬浮窗。",
@@ -103,7 +103,7 @@ namespace FoodBuffOverlay
                 [Korean] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["PluginTab"]="음식 버프 오버레이", ["HeaderSubtitle"]="필요할 때만 음식 버프 경고를 표시합니다",
-                    ["TabSettings"]="설정", ["TabSupport"]="후원", ["Language"]="언어", ["LanguageHint"]="변경 사항은 즉시 적용됩니다.",
+                    ["TabSettings"]="설정", ["TabUpdate"]="업데이트", ["TabSupport"]="후원", ["Language"]="언어", ["LanguageHint"]="변경 사항은 즉시 적용됩니다.",
                     ["Enabled"]="오버레이 사용", ["Locked"]="위치와 크기 잠금(클릭 통과)", ["Preview"]="위치 조정 미리보기 표시",
                     ["WarningThreshold"]="남은 시간이 다음 이하일 때 경고", ["MinutesSuffix"]="분 이하(기본값 12분)", ["Opacity"]="오버레이 투명도",
                     ["Hint"]="경고 조건에 해당하지 않으면 오버레이가 완전히 숨겨집니다.\r\n위치 조정 시 잠금을 해제하고 미리보기를 켠 뒤 드래그하세요.",

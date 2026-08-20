@@ -168,11 +168,12 @@ internal static class Program
             var all = Descendants(control).ToList();
             var tabs = all.OfType<TabControl>().Single();
             var combo = all.OfType<ComboBox>().Single();
-            Assert(tabs.TabPages[1].Text == "Support", "English support tab is incorrect.");
-            combo.SelectedIndex = 1; Assert(tabs.TabPages[1].Text == "支援", "Immediate Japanese switch failed.");
-            combo.SelectedIndex = 2; Assert(tabs.TabPages[1].Text == "支持", "Immediate Chinese switch failed.");
-            combo.SelectedIndex = 3; Assert(tabs.TabPages[1].Text == "후원", "Immediate Korean switch failed.");
-            var supportText = string.Join("\n", Descendants(tabs.TabPages[1]).Select(x => x.Text));
+            Assert(tabs.TabPages.Count == 3, "Settings, Updates, and Support must be separate tabs.");
+            Assert(tabs.TabPages[1].Text == "Updates" && tabs.TabPages[2].Text == "Support", "English update/support tabs are incorrect.");
+            combo.SelectedIndex = 1; Assert(tabs.TabPages[1].Text == "更新" && tabs.TabPages[2].Text == "支援", "Immediate Japanese switch failed.");
+            combo.SelectedIndex = 2; Assert(tabs.TabPages[1].Text == "更新" && tabs.TabPages[2].Text == "支持", "Immediate Chinese switch failed.");
+            combo.SelectedIndex = 3; Assert(tabs.TabPages[1].Text == "업데이트" && tabs.TabPages[2].Text == "후원", "Immediate Korean switch failed.");
+            var supportText = string.Join("\n", Descendants(tabs.TabPages[2]).Select(x => x.Text));
             Assert(supportText.Contains("Roxyz0501") && supportText.Contains(SettingsControl.SupportUrl), "Localized support content is incomplete.");
         }
     }
