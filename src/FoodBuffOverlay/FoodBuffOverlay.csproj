@@ -8,7 +8,7 @@
     <RootNamespace>FoodBuffOverlay</RootNamespace>
     <Platforms>AnyCPU</Platforms>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <Authors>Roxyz0501</Authors>
     <Company>Roxyz0501</Company>
     <Product>Food Buff Overlay for ACT</Product>

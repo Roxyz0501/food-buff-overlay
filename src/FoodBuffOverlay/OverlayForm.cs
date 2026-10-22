@@ -21,7 +21,6 @@ namespace FoodBuffOverlay
         private bool initialized;
         private bool appliedLocked;
 
-        public event EventHandler BoundsChangedByUser;
         [DllImport("user32.dll")] private static extern bool ReleaseCapture();
         [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
 
@@ -43,13 +42,7 @@ namespace FoodBuffOverlay
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw | ControlStyles.UserPaint, true);
             boundsTimer = new Timer { Interval = 450 };
-            boundsTimer.Tick += delegate
-            {
-                boundsTimer.Stop();
-                if (!initialized || settings.Locked) return;
-                settings.Left = Left; settings.Top = Top; settings.Width = Width; settings.Height = Height;
-                BoundsChangedByUser?.Invoke(this, EventArgs.Empty);
-            };
+            boundsTimer.Tick += BoundsTimerTick;
             Move += BoundsChanged;
         }
 
@@ -68,6 +61,11 @@ namespace FoodBuffOverlay
         public void ApplySettings(PluginSettings value, bool restoreBounds = false)
         {
             var lockChanged = appliedLocked != value.Locked;
+            if (lockChanged && initialized && !appliedLocked)
+            {
+                boundsTimer.Stop();
+                CaptureBounds();
+            }
             settings = value;
             settings.Normalize();
             if (restoreBounds)
@@ -107,8 +105,27 @@ namespace FoodBuffOverlay
 
         private void BoundsChanged(object sender, EventArgs e)
         {
-            if (!initialized || settings.Locked) return;
+            if (!initialized || appliedLocked) return;
             boundsTimer.Stop(); boundsTimer.Start();
+        }
+
+        private void BoundsTimerTick(object sender, EventArgs e)
+        {
+            boundsTimer.Stop();
+            if (!initialized || appliedLocked) return;
+            CaptureBounds();
+        }
+
+        private void CaptureBounds()
+        {
+            if (!initialized) return;
+            settings.Left = Left; settings.Top = Top; settings.Width = Width; settings.Height = Height;
+        }
+
+        public void StopAndFlushBounds()
+        {
+            boundsTimer.Stop();
+            if (initialized && !appliedLocked) CaptureBounds();
         }
 
         protected override void OnShown(EventArgs e) { base.OnShown(e); initialized = true; UpdateRegion(); }
@@ -201,7 +218,13 @@ namespace FoodBuffOverlay
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) boundsTimer?.Dispose();
+            if (disposing)
+            {
+                StopAndFlushBounds();
+                Move -= BoundsChanged;
+                boundsTimer.Tick -= BoundsTimerTick;
+                boundsTimer?.Dispose();
+            }
             base.Dispose(disposing);
         }
     }

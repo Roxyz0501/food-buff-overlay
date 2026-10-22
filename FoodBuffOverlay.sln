@@ -6,8 +6,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodBuffOverlay", "src\Food
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodBuffOverlay.Tests", "tests\FoodBuffOverlay.Tests\FoodBuffOverlay.Tests.csproj", "{F2107B57-D750-4871-989F-1C82712A7F5A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodBuffOverlay.Updater", "src\FoodBuffOverlay.Updater\FoodBuffOverlay.Updater.csproj", "{A12B4500-E972-4403-87F9-5E7D756B2CD3}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,9 +20,5 @@ Global
 		{F2107B57-D750-4871-989F-1C82712A7F5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F2107B57-D750-4871-989F-1C82712A7F5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F2107B57-D750-4871-989F-1C82712A7F5A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A12B4500-E972-4403-87F9-5E7D756B2CD3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A12B4500-E972-4403-87F9-5E7D756B2CD3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A12B4500-E972-4403-87F9-5E7D756B2CD3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A12B4500-E972-4403-87F9-5E7D756B2CD3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

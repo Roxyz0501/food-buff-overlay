@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Threading;
 
 namespace FoodBuffOverlay
 {
@@ -45,18 +46,34 @@ namespace FoodBuffOverlay
         }
 
         public static void ExtractValidated(string zipPath, string destinationRoot)
+            => ExtractValidated(zipPath, destinationRoot, CancellationToken.None);
+
+        public static void ExtractValidated(string zipPath, string destinationRoot, CancellationToken cancellationToken)
         {
             Directory.CreateDirectory(destinationRoot);
             using (var archive = ZipFile.OpenRead(zipPath))
             {
                 if (archive.Entries.Count > 64) throw new InvalidDataException("Update package contains too many files.");
+                long totalBytes = 0;
                 foreach (var entry in archive.Entries)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (entry.Length > 50L * 1024 * 1024) throw new InvalidDataException("Update package entry is too large.");
+                    totalBytes += entry.Length;
+                    if (totalBytes > 150L * 1024 * 1024) throw new InvalidDataException("Update package is too large.");
                     var destination = SafeDestination(destinationRoot, entry.FullName);
                     if (string.IsNullOrEmpty(entry.Name)) { Directory.CreateDirectory(destination); continue; }
                     Directory.CreateDirectory(Path.GetDirectoryName(destination));
-                    entry.ExtractToFile(destination, true);
+                    using (var input = entry.Open())
+                    using (var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        var buffer = new byte[81920]; int read;
+                        while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            output.Write(buffer, 0, read);
+                        }
+                    }
                 }
             }
         }

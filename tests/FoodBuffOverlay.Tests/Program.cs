@@ -8,6 +8,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 internal static class Program
@@ -22,7 +24,8 @@ internal static class Program
             VerifySemVersion();
             VerifyReleaseParser();
             VerifyHashAndZipSafety();
-            VerifyUpdaterBackupAndRollback();
+            VerifySettingsPersistenceLifecycle();
+            VerifyBackgroundTaskShutdown();
             VerifySupportLink();
             VerifyLocalizedUi();
             VerifyRepositoryIsConfigured();
@@ -35,6 +38,64 @@ internal static class Program
             Console.Error.WriteLine(ex);
             return 1;
         }
+    }
+
+    private static void VerifySettingsPersistenceLifecycle()
+    {
+        Assert(SettingsPersistence.AutosaveIntervalMilliseconds == 60000, "Settings autosave interval must be 60 seconds.");
+        var root = TemporaryDirectory();
+        try
+        {
+            var path = Path.Combine(root, "settings.xml");
+            var settings = new PluginSettings { Language = "en", WarningMinutes = 12 };
+            var writes = 0;
+            Action<string, byte[]> writer = (target, bytes) => { writes++; AtomicSettingsFile.Write(target, bytes); };
+            var persistence = new SettingsPersistence(path, settings, writer);
+            Assert(!persistence.SaveIfChanged(settings) && writes == 0, "Unchanged settings must not be written.");
+
+            settings.WarningMinutes = 15;
+            Assert(persistence.IsDirty(settings), "Edited settings should be dirty.");
+            settings.WarningMinutes = 16; // Continuous edits collapse into the one next interval save.
+            Assert(persistence.SaveIfChanged(settings) && writes == 1, "Changed settings should write once at the interval.");
+            Assert(!persistence.SaveIfChanged(settings) && writes == 1, "Unchanged interval must not write again.");
+
+            settings.Language = "ja"; // Normal unload flushes pending edits before the next 60-second tick.
+            Assert(persistence.SaveIfChanged(settings) && writes == 2, "Final save did not flush pending edits.");
+            var reloaded = PluginSettings.Load(path);
+            Assert(reloaded.WarningMinutes == 16 && reloaded.Language == "ja", "Saved settings did not reload.");
+            var persistedBytes = File.ReadAllBytes(path);
+
+            var failing = new SettingsPersistence(path, reloaded, (target, bytes) => { throw new IOException("simulated save failure"); });
+            reloaded.WarningMinutes = 19;
+            AssertThrows<IOException>(() => failing.SaveIfChanged(reloaded), "Save failure was not surfaced.");
+            Assert(failing.IsDirty(reloaded), "Failed save must retain dirty state for retry.");
+            Assert(File.ReadAllBytes(path).SequenceEqual(persistedBytes), "Failed save damaged the existing settings file.");
+            var retry = new SettingsPersistence(path, PluginSettings.Load(path), AtomicSettingsFile.Write);
+            Assert(retry.IsDirty(reloaded) && retry.SaveIfChanged(reloaded), "A later retry should persist pending edits.");
+            Assert(PluginSettings.Load(path).WarningMinutes == 19, "Retry did not persist settings.");
+            Assert(!Directory.GetFiles(root, "*.tmp-*", SearchOption.TopDirectoryOnly).Any(), "Atomic save left temporary files behind.");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    private static void VerifyBackgroundTaskShutdown()
+    {
+        var group = new BackgroundTaskGroup();
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        Assert(group.TryStart(token => Task.Run(() => { entered.Set(); release.Wait(); })), "Background task did not start.");
+        Assert(entered.Wait(TimeSpan.FromSeconds(5)), "Background task did not enter its work section.");
+        var shutdown = Task.Run(() => group.StopAndWait());
+        Assert(!shutdown.Wait(TimeSpan.FromMilliseconds(100)), "Shutdown returned while tracked work was still running.");
+        release.Set();
+        Assert(shutdown.Wait(TimeSpan.FromSeconds(5)), "Shutdown did not finish after work completed.");
+        Assert(!group.TryStart(token => Task.CompletedTask), "New work was accepted after shutdown began.");
+        group.Dispose(); entered.Dispose(); release.Dispose();
+
+        var cancellable = new BackgroundTaskGroup();
+        cancellable.TryStart(token => Task.Delay(Timeout.Infinite, token));
+        cancellable.StopAndWait();
+        cancellable.Dispose();
     }
 
     private static void VerifyCultureMappingAndSettingsCompatibility()
@@ -126,30 +187,6 @@ internal static class Program
         finally { Directory.Delete(root, true); }
     }
 
-    private static void VerifyUpdaterBackupAndRollback()
-    {
-        var root = TemporaryDirectory();
-        try
-        {
-            var sourceDir = Path.Combine(root, "stage"); var targetDir = Path.Combine(root, "plugin");
-            Directory.CreateDirectory(sourceDir); Directory.CreateDirectory(targetDir);
-            var source = Path.Combine(sourceDir, "FoodBuffOverlay.dll"); var target = Path.Combine(targetDir, "FoodBuffOverlay.dll");
-            File.WriteAllText(source, "new plugin", Encoding.UTF8); File.WriteAllText(target, "old plugin", Encoding.UTF8);
-            var hash = UpdatePackageVerifier.ComputeSha256(source);
-            AssertThrows<InvalidOperationException>(() => FoodBuffOverlay.Updater.Program.ReplaceWithBackup(
-                source, target, hash, "1.2.0", (incoming, destination) =>
-                {
-                    File.WriteAllText(destination, "broken", Encoding.UTF8);
-                    throw new InvalidOperationException("simulated install failure");
-                }), "Simulated updater failure did not propagate.");
-            Assert(File.ReadAllText(target, Encoding.UTF8) == "old plugin", "Rollback did not restore the previous DLL.");
-            Assert(Directory.GetFiles(targetDir, "*.backup-*").Length == 1, "Backup was not retained.");
-            FoodBuffOverlay.Updater.Program.ReplaceWithBackup(source, target, hash, "1.2.0");
-            Assert(File.ReadAllText(target, Encoding.UTF8) == "new plugin", "Updater success path failed.");
-        }
-        finally { Directory.Delete(root, true); }
-    }
-
     private static void VerifySupportLink()
     {
         ProcessStartInfo captured = null; string error;
@@ -196,7 +233,7 @@ internal static class Program
         foreach (Control child in root.Controls) { yield return child; foreach (var nested in Descendants(child)) yield return nested; }
     }
 
-    private static string TemporaryDirectory() { var path = Path.Combine(Path.GetTempPath(), "FoodBuffOverlayTests", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(path); return path; }
+    private static string TemporaryDirectory() { var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test-temp", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(path); return path; }
     private static void Assert(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static void AssertThrows<T>(Action action, string message) where T : Exception
     {

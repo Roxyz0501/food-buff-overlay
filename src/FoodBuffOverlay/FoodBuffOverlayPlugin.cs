@@ -13,16 +13,22 @@ namespace FoodBuffOverlay
         private readonly FfxivDataSource dataSource = new FfxivDataSource();
         private readonly FoodBuffLogTracker logTracker = new FoodBuffLogTracker();
         private readonly UpdateService updateService = new UpdateService();
-        private readonly CancellationTokenSource updateCancellation = new CancellationTokenSource();
+        private readonly BackgroundTaskGroup backgroundTasks = new BackgroundTaskGroup();
+        private readonly object pendingUpdateGate = new object();
         private PluginSettings settings;
+        private SettingsPersistence settingsPersistence;
         private SettingsControl control;
         private OverlayForm overlay;
         private System.Windows.Forms.Timer refreshTimer;
         private System.Windows.Forms.Timer displayTimer;
+        private System.Windows.Forms.Timer settingsSaveTimer;
         private FoodBuffState sampledState = FoodBuffState.Unavailable();
         private Label status;
         private string settingsPath;
         private TabPage pluginPage;
+        private PendingUpdate pendingUpdate;
+        private int stopping;
+        private string lastSaveError;
 
         public void InitPlugin(TabPage pluginScreenSpace, Label pluginStatusText)
         {
@@ -30,9 +36,9 @@ namespace FoodBuffOverlay
             settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "Advanced Combat Tracker", "Config", "FoodBuffOverlay.xml");
             settings = PluginSettings.Load(settingsPath);
-            var initializedLanguage = settings.InitializeLanguageIfMissing(CultureInfo.CurrentUICulture);
+            settingsPersistence = new SettingsPersistence(settingsPath, settings);
+            settings.InitializeLanguageIfMissing(CultureInfo.CurrentUICulture);
             settings.Normalize();
-            if (initializedLanguage) SaveSettings();
             control = new SettingsControl(settings);
             control.SettingsChanged += OnSettingsChanged;
             control.CheckUpdatesRequested += OnCheckUpdatesRequested;
@@ -42,7 +48,6 @@ namespace FoodBuffOverlay
             pluginScreenSpace.Text = Localization.Get(settings.Language, "PluginTab");
             pluginScreenSpace.Controls.Add(control);
             overlay = new OverlayForm(settings);
-            overlay.BoundsChangedByUser += delegate { SaveSettings(); };
             overlay.ApplySettings(settings, true);
             ActGlobals.oFormActMain.OnLogLineRead += OnLogLineRead;
             logTracker.ReplayCurrentLog();
@@ -52,6 +57,9 @@ namespace FoodBuffOverlay
             displayTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             displayTimer.Tick += RefreshDisplay;
             displayTimer.Start();
+            settingsSaveTimer = new System.Windows.Forms.Timer { Interval = SettingsPersistence.AutosaveIntervalMilliseconds };
+            settingsSaveTimer.Tick += SaveSettings;
+            settingsSaveTimer.Start();
             PollStatus(null, EventArgs.Empty);
             status.Text = Localization.Get(settings.Language, "Started");
             if (settings.CheckUpdatesOnStartup)
@@ -60,7 +68,7 @@ namespace FoodBuffOverlay
 
         private void PollStatus(object sender, EventArgs e)
         {
-            if (settings == null) return;
+            if (settings == null || Volatile.Read(ref stopping) != 0) return;
             var snapshot = dataSource.Read(settings.WarningMinutes);
             sampledState = logTracker.Resolve(snapshot, dataSource.CurrentPlayerId, settings.WarningMinutes);
             RefreshDisplay(null, EventArgs.Empty);
@@ -72,38 +80,37 @@ namespace FoodBuffOverlay
 
         private void RefreshDisplay(object sender, EventArgs e)
         {
-            if (settings == null) return;
+            if (settings == null || Volatile.Read(ref stopping) != 0) return;
+            ApplyPendingUpdate();
             overlay?.SetState(sampledState.At(DateTime.UtcNow, settings.WarningMinutes));
         }
 
         private void OnLogLineRead(bool isImport, LogLineEventArgs logInfo)
         {
-            if (isImport || logInfo == null) return;
-            var changed = logTracker.ProcessLine(logInfo.originalLogLine);
+            if (Volatile.Read(ref stopping) != 0 || isImport || logInfo == null) return;
+            logTracker.ProcessLine(logInfo.originalLogLine);
             if (!string.Equals(logInfo.logLine, logInfo.originalLogLine, StringComparison.Ordinal))
-                changed |= logTracker.ProcessLine(logInfo.logLine);
-            if (!changed || control == null) return;
-            if (control.InvokeRequired) control.BeginInvoke(new Action(() => PollStatus(null, EventArgs.Empty)));
-            else PollStatus(null, EventArgs.Empty);
+                logTracker.ProcessLine(logInfo.logLine);
+            // The existing UI timers sample status. Avoid queuing a callback that could run after deinitialization.
         }
 
         private void OnSettingsChanged(object sender, EventArgs e)
         {
+            if (Volatile.Read(ref stopping) != 0) return;
             control.ApplyTo(settings);
             overlay.ApplySettings(settings);
             if (pluginPage != null) pluginPage.Text = Localization.Get(settings.Language, "PluginTab");
             if (status != null) status.Text = Localization.Get(settings.Language, "Started");
-            SaveSettings();
             PollStatus(null, EventArgs.Empty);
         }
 
         public void DeInitPlugin()
         {
+            if (Interlocked.Exchange(ref stopping, 1) != 0) return;
             ActGlobals.oFormActMain.OnLogLineRead -= OnLogLineRead;
-            updateCancellation.Cancel();
             if (refreshTimer != null) { refreshTimer.Stop(); refreshTimer.Tick -= PollStatus; refreshTimer.Dispose(); }
             if (displayTimer != null) { displayTimer.Stop(); displayTimer.Tick -= RefreshDisplay; displayTimer.Dispose(); }
-            SaveSettings();
+            if (settingsSaveTimer != null) { settingsSaveTimer.Stop(); settingsSaveTimer.Tick -= SaveSettings; settingsSaveTimer.Dispose(); }
             if (control != null)
             {
                 control.SettingsChanged -= OnSettingsChanged;
@@ -111,67 +118,108 @@ namespace FoodBuffOverlay
                 control.InstallUpdateRequested -= OnInstallUpdateRequested;
                 control.SkipUpdateRequested -= OnSkipUpdateRequested;
             }
+            overlay?.StopAndFlushBounds();
+            backgroundTasks.StopAndWait();
+            backgroundTasks.Dispose();
+            SaveSettings(null, EventArgs.Empty);
+            updateService.Dispose();
             overlay?.Close(); overlay?.Dispose(); control?.Dispose();
-            updateService.Dispose(); updateCancellation.Dispose();
-            if (status != null) status.Text = Localization.Get(settings == null ? Localization.English : settings.Language, "Stopped");
+            if (status != null) status.Text = lastSaveError ?? Localization.Get(settings == null ? Localization.English : settings.Language, "Stopped");
         }
 
-        private void SaveSettings()
+        private void SaveSettings(object sender, EventArgs e)
         {
-            try { settings?.Save(settingsPath); }
-            catch (Exception ex) { if (status != null) status.Text = Localization.Get(settings == null ? Localization.English : settings.Language, "SaveError", ex.Message); }
+            if (settings == null || settingsPersistence == null) return;
+            try
+            {
+                settingsPersistence.SaveIfChanged(settings);
+                lastSaveError = null;
+            }
+            catch (Exception ex)
+            {
+                lastSaveError = Localization.Get(settings.Language, "SaveError", ex.GetBaseException().Message);
+                if (status != null) status.Text = lastSaveError;
+            }
         }
 
         private void OnCheckUpdatesRequested(object sender, EventArgs e) => CheckForUpdates(true);
 
-        private async void CheckForUpdates(bool userInitiated)
+        private void CheckForUpdates(bool userInitiated)
         {
-            if (control == null || control.IsDisposed) return;
+            if (Volatile.Read(ref stopping) != 0 || control == null || control.IsDisposed) return;
             control.SetUpdateChecking();
             var current = Assembly.GetExecutingAssembly().GetName().Version;
-            var result = await updateService.CheckAsync(current, updateCancellation.Token);
-            if (control == null || control.IsDisposed || updateCancellation.IsCancellationRequested) return;
-            control.ShowUpdateResult(result, current, settings.SkippedVersion);
-            if (result.Status == UpdateCheckStatus.UpdateAvailable && result.Release != null &&
-                !string.Equals(settings.SkippedVersion, result.Release.Version.ToString(), StringComparison.OrdinalIgnoreCase))
+            backgroundTasks.TryStart(async token =>
             {
-                status.Text = Localization.Get(settings.Language, "UpdateAvailable", current.ToString(3), result.Release.Version, result.Release.Notes);
-            }
-            else if (userInitiated && result.Status == UpdateCheckStatus.Failed)
-            {
-                status.Text = Localization.Get(settings.Language, "CheckFailed", Localization.Get(settings.Language, "NetworkFailure"));
-            }
+                var result = await updateService.CheckAsync(current, token).ConfigureAwait(false);
+                if (token.IsCancellationRequested || Volatile.Read(ref stopping) != 0) return;
+                lock (pendingUpdateGate) pendingUpdate = PendingUpdate.Checked(result, current, userInitiated);
+            });
         }
 
-        private async void OnInstallUpdateRequested(object sender, EventArgs e)
+        private void OnInstallUpdateRequested(object sender, EventArgs e)
         {
+            if (Volatile.Read(ref stopping) != 0) return;
             var release = control == null ? null : control.AvailableRelease;
             if (release == null) return;
             control.SetUpdatePreparing();
-            try
+            backgroundTasks.TryStart(async token =>
             {
-                var prepared = await updateService.DownloadAndVerifyAsync(release, updateCancellation.Token);
-                if (updateCancellation.IsCancellationRequested) return;
-                updateService.LaunchUpdater(prepared, Assembly.GetExecutingAssembly().Location);
-                control.SetUpdatePrepared();
-                status.Text = Localization.Get(settings.Language, "RestartAct");
-            }
-            catch (Exception ex)
-            {
-                var message = LocalizeUpdateError(ex.GetBaseException().Message);
-                control.SetUpdateError(message);
-                status.Text = Localization.Get(settings.Language, "UpdateFailed", message);
-            }
+                try
+                {
+                    var prepared = await updateService.DownloadAndVerifyAsync(release, token).ConfigureAwait(false);
+                    if (token.IsCancellationRequested || Volatile.Read(ref stopping) != 0) return;
+                    lock (pendingUpdateGate) pendingUpdate = PendingUpdate.Prepared(prepared);
+                }
+                catch (Exception ex)
+                {
+                    if (token.IsCancellationRequested || Volatile.Read(ref stopping) != 0) return;
+                    lock (pendingUpdateGate) pendingUpdate = PendingUpdate.Failed(ex.GetBaseException().Message);
+                }
+            });
         }
 
         private void OnSkipUpdateRequested(object sender, EventArgs e)
         {
+            if (Volatile.Read(ref stopping) != 0) return;
             var release = control == null ? null : control.AvailableRelease;
             if (release == null) return;
             settings.SkippedVersion = release.Version.ToString();
-            SaveSettings();
             control.ShowUpdateResult(new UpdateCheckResult { Status = UpdateCheckStatus.UpdateAvailable, Release = release },
                 Assembly.GetExecutingAssembly().GetName().Version, settings.SkippedVersion);
+        }
+
+        private void ApplyPendingUpdate()
+        {
+            if (Volatile.Read(ref stopping) != 0 || control == null || control.IsDisposed) return;
+            PendingUpdate pending;
+            lock (pendingUpdateGate) { pending = pendingUpdate; pendingUpdate = null; }
+            if (pending == null) return;
+            if (pending.CheckResult != null)
+            {
+                control.ShowUpdateResult(pending.CheckResult, pending.CurrentVersion, settings.SkippedVersion);
+                if (pending.CheckResult.Status == UpdateCheckStatus.UpdateAvailable && pending.CheckResult.Release != null &&
+                    !string.Equals(settings.SkippedVersion, pending.CheckResult.Release.Version.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    status.Text = Localization.Get(settings.Language, "UpdateAvailable", pending.CurrentVersion.ToString(3),
+                        pending.CheckResult.Release.Version, pending.CheckResult.Release.Notes);
+                }
+                else if (pending.UserInitiated && pending.CheckResult.Status == UpdateCheckStatus.Failed)
+                {
+                    status.Text = Localization.Get(settings.Language, "CheckFailed", Localization.Get(settings.Language, "NetworkFailure"));
+                }
+            }
+            else if (pending.PreparedUpdate != null)
+            {
+                control.SetUpdatePrepared(pending.PreparedUpdate.StagedDllPath);
+                status.Text = Localization.Get(settings.Language, "UpdatePreparedStatus");
+            }
+            else if (!string.IsNullOrEmpty(pending.Error))
+            {
+                var message = LocalizeUpdateError(pending.Error);
+                control.SetUpdateError(message);
+                status.Text = Localization.Get(settings.Language, "UpdateFailed", message);
+            }
         }
 
         private string LocalizeUpdateError(string code)
@@ -180,10 +228,23 @@ namespace FoodBuffOverlay
             {
                 case "UpdateAssetMissing": return Localization.Get(settings.Language, "UpdateAssetMissing");
                 case "HashFailed": return Localization.Get(settings.Language, "HashFailed");
-                case "UpdaterMissing": return Localization.Get(settings.Language, "UpdaterMissing");
                 case "InvalidPackage": return Localization.Get(settings.Language, "InvalidPackage");
                 default: return Localization.Get(settings.Language, "UpdateFailureGeneric");
             }
+        }
+
+        private sealed class PendingUpdate
+        {
+            public UpdateCheckResult CheckResult { get; private set; }
+            public Version CurrentVersion { get; private set; }
+            public bool UserInitiated { get; private set; }
+            public PreparedUpdate PreparedUpdate { get; private set; }
+            public string Error { get; private set; }
+
+            public static PendingUpdate Checked(UpdateCheckResult result, Version version, bool initiated) =>
+                new PendingUpdate { CheckResult = result, CurrentVersion = version, UserInitiated = initiated };
+            public static PendingUpdate Prepared(PreparedUpdate update) => new PendingUpdate { PreparedUpdate = update };
+            public static PendingUpdate Failed(string error) => new PendingUpdate { Error = error };
         }
     }
 }

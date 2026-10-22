@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -29,12 +28,14 @@ namespace FoodBuffOverlay
             try
             {
                 EnsureAllowedUri(new Uri(UpdateConfiguration.ReleasesApiUrl), true);
-                return await CheckFromFetcherAsync(async () =>
+                using (var response = await client.GetAsync(UpdateConfiguration.ReleasesApiUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
                 {
-                    var json = await client.GetStringAsync(UpdateConfiguration.ReleasesApiUrl).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+                    if (response.Content.Headers.ContentLength > 2 * 1024 * 1024) throw new InvalidDataException("InvalidResponse");
+                    var json = await ReadLimitedTextAsync(response.Content, 2 * 1024 * 1024, cancellationToken).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
-                    return json;
-                }, currentVersion).ConfigureAwait(false);
+                    return EvaluateResponse(json, currentVersion);
+                }
             }
             catch (Exception ex)
             {
@@ -88,35 +89,25 @@ namespace FoodBuffOverlay
             Directory.CreateDirectory(root);
             var zipPath = Path.Combine(root, "package.zip");
             var manifestPath = Path.Combine(root, "package.sha256");
-            await DownloadAsync(zip.DownloadUrl, zipPath, cancellationToken).ConfigureAwait(false);
-            await DownloadAsync(manifest.DownloadUrl, manifestPath, cancellationToken).ConfigureAwait(false);
-            var expected = UpdatePackageVerifier.FindManifestHash(File.ReadAllText(manifestPath, Encoding.UTF8), zip.Name);
-            if (!UpdatePackageVerifier.VerifySha256(zipPath, expected)) throw new InvalidDataException("HashFailed");
-
-            var extracted = Path.Combine(root, "extracted");
-            UpdatePackageVerifier.ExtractValidated(zipPath, extracted);
-            var dll = Directory.GetFiles(extracted, UpdateConfiguration.PluginFileName, SearchOption.AllDirectories).SingleOrDefault();
-            var updater = Directory.GetFiles(extracted, UpdateConfiguration.UpdaterFileName, SearchOption.AllDirectories).SingleOrDefault();
-            if (dll == null || updater == null) throw new InvalidDataException("InvalidPackage");
-            UpdatePackageVerifier.ValidatePluginAssembly(dll, release.Version);
-            return new PreparedUpdate { StagedDllPath = dll, StagedUpdaterPath = updater, DllSha256 = UpdatePackageVerifier.ComputeSha256(dll), Release = release };
-        }
-
-        public void LaunchUpdater(PreparedUpdate update, string targetDllPath)
-        {
-            if (update == null) throw new ArgumentNullException("update");
-            var currentUpdater = Path.Combine(Path.GetDirectoryName(targetDllPath), UpdateConfiguration.UpdaterFileName);
-            if (!File.Exists(currentUpdater)) throw new InvalidOperationException("UpdaterMissing");
-            var info = new ProcessStartInfo
+            try
             {
-                FileName = currentUpdater,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                Arguments = "--wait-pid " + Process.GetCurrentProcess().Id +
-                    " --source " + Quote(update.StagedDllPath) + " --target " + Quote(targetDllPath) +
-                    " --sha256 " + update.DllSha256 + " --version " + update.Release.Version
-            };
-            Process.Start(info);
+                await DownloadAsync(zip.DownloadUrl, zipPath, cancellationToken).ConfigureAwait(false);
+                await DownloadAsync(manifest.DownloadUrl, manifestPath, cancellationToken).ConfigureAwait(false);
+                var expected = UpdatePackageVerifier.FindManifestHash(File.ReadAllText(manifestPath, Encoding.UTF8), zip.Name);
+                if (!UpdatePackageVerifier.VerifySha256(zipPath, expected)) throw new InvalidDataException("HashFailed");
+
+                var extracted = Path.Combine(root, "extracted");
+                UpdatePackageVerifier.ExtractValidated(zipPath, extracted, cancellationToken);
+                var dll = Directory.GetFiles(extracted, UpdateConfiguration.PluginFileName, SearchOption.AllDirectories).SingleOrDefault();
+                if (dll == null) throw new InvalidDataException("InvalidPackage");
+                UpdatePackageVerifier.ValidatePluginAssembly(dll, release.Version);
+                return new PreparedUpdate { StagedDllPath = dll, DllSha256 = UpdatePackageVerifier.ComputeSha256(dll), Release = release };
+            }
+            catch
+            {
+                try { Directory.Delete(root, true); } catch { }
+                throw;
+            }
         }
 
         private async Task DownloadAsync(string url, string destination, CancellationToken cancellationToken)
@@ -157,6 +148,22 @@ namespace FoodBuffOverlay
             }
         }
 
+        private static async Task<string> ReadLimitedTextAsync(HttpContent content, int maximumBytes, CancellationToken cancellationToken)
+        {
+            using (var input = await content.ReadAsStreamAsync().ConfigureAwait(false))
+            using (var buffer = new MemoryStream())
+            {
+                var chunk = new byte[8192]; int count;
+                while ((count = await input.ReadAsync(chunk, 0, chunk.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (buffer.Length + count > maximumBytes) throw new InvalidDataException("InvalidResponse");
+                    buffer.Write(chunk, 0, count);
+                }
+                return Encoding.UTF8.GetString(buffer.ToArray());
+            }
+        }
+
         internal static void EnsureAllowedUri(Uri uri, bool api)
         {
             if (uri == null || uri.Scheme != Uri.UriSchemeHttps) throw new InvalidDataException("Only HTTPS update URLs are allowed.");
@@ -166,7 +173,6 @@ namespace FoodBuffOverlay
             if (!allowed) throw new InvalidDataException("Unexpected update host.");
         }
 
-        private static string Quote(string value) => "\"" + (value ?? string.Empty).Replace("\"", "\\\"") + "\"";
         public void Dispose() { client.Dispose(); }
     }
 }

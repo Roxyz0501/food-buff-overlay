@@ -3,21 +3,21 @@ param(
     [string]$ActPath = "C:\Program Files (x86)\Advanced Combat Tracker\Advanced Combat Tracker.exe"
 )
 $ErrorActionPreference = "Stop"
-$solutionPath = Join-Path $PSScriptRoot "FoodBuffOverlay.sln"
 if (-not (Test-Path -LiteralPath $ActPath)) { throw "Advanced Combat Tracker.exe was not found. Pass its path with -ActPath." }
-dotnet build $solutionPath -c $Configuration -p:ActPath="$ActPath" --configfile (Join-Path $PSScriptRoot "NuGet.Config")
+dotnet build (Join-Path $PSScriptRoot "tests\FoodBuffOverlay.Tests\FoodBuffOverlay.Tests.csproj") -c $Configuration -p:ActPath="$ActPath" --configfile (Join-Path $PSScriptRoot "NuGet.Config")
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 $pluginDll = Join-Path $PSScriptRoot "src\FoodBuffOverlay\bin\$Configuration\net48\FoodBuffOverlay.dll"
-$updaterExe = Join-Path $PSScriptRoot "src\FoodBuffOverlay.Updater\bin\$Configuration\net48\FoodBuffOverlay.Updater.exe"
-$pluginOutput = Split-Path -Parent $pluginDll
-Copy-Item -LiteralPath $updaterExe -Destination (Join-Path $pluginOutput "FoodBuffOverlay.Updater.exe") -Force
-
 $version = [Reflection.AssemblyName]::GetAssemblyName($pluginDll).Version.ToString(3)
 $dist = Join-Path $PSScriptRoot "dist"
 $stage = Join-Path $dist "package"
+if (Test-Path -LiteralPath $stage) {
+    $resolvedDist = [IO.Path]::GetFullPath($dist).TrimEnd('\') + '\'
+    $resolvedStage = [IO.Path]::GetFullPath($stage)
+    if (-not $resolvedStage.StartsWith($resolvedDist, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolvedStage) -ne "package") { throw "Refusing to clear an unexpected package staging directory." }
+    Remove-Item -LiteralPath $resolvedStage -Recurse -Force
+}
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item -LiteralPath $pluginDll -Destination (Join-Path $stage "FoodBuffOverlay.dll") -Force
-Copy-Item -LiteralPath $updaterExe -Destination (Join-Path $stage "FoodBuffOverlay.Updater.exe") -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "README.md") -Destination (Join-Path $stage "README.md") -Force
 $zipName = "FoodBuffOverlay-v$version.zip"
 $zipPath = Join-Path $dist $zipName

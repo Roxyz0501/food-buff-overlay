@@ -17,7 +17,7 @@
 
 ## インストール
 
-1. `FoodBuffOverlay.dll` と `FoodBuffOverlay.Updater.exe` を同じプラグイン用フォルダへコピーします。ReleaseではZIP内の2ファイルを使用してください。
+1. `FoodBuffOverlay.dll` をプラグイン用フォルダへコピーします。Release ZIP内のREADMEは任意です。
 2. ACTの `Plugins` タブで `Browse...` を押し、DLLを選択します。
 3. FFXIV Parsing Pluginより後ろの順番で本プラグインを有効にします。
 4. `Food Buff Overlay` タブでプレビューをON、固定をOFFにして位置とサイズを調整します。
@@ -31,7 +31,7 @@
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-ビルドではプラグイン、補助アップデータ、テストをコンパイルし、次のRelease用ファイルも生成します。
+ビルドではプラグインとテストをコンパイルし、次のRelease用ファイルも生成します。終了後アップデータは起動しません。ACT終了後の手動置換が必要です。
 
 - `dist\FoodBuffOverlay-vX.Y.Z.zip`
 - `dist\FoodBuffOverlay-vX.Y.Z.sha256`
@@ -43,6 +43,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
 設定は `%APPDATA%\Advanced Combat Tracker\Config\FoodBuffOverlay.xml` に保存されます。
+変更された設定だけを最大60秒ごとに保存し、プラグインの正常な終了時にも未保存分を保存します。オーバーレイ位置の変更は450ミリ秒の入力停止後にメモリへまとめ、同じ保存周期で書き込みます。設定ファイルは一時ファイルへ書いてから置換するため、保存失敗時は既存ファイルを保持します。
 
 ## 言語
 
@@ -69,7 +70,7 @@ Configには更新確認設定も追加されています。
 
 起動時更新確認をONにすると、UIをブロックしない処理で最新の安定版Releaseを1回確認します。設定画面の「今すぐ確認」から手動確認も可能です。draftとprereleaseは除外し、SemVerで現在版と比較します。
 
-更新は利用者が「更新」ボタンを押した場合だけ行います。ZIPとSHA-256マニフェストをHTTPSで取得し、GitHubの許可済みホスト、ファイルサイズ、SHA-256、ZIP展開先、アセンブリ名、ReleaseタグとDLLバージョンを検証します。ロード中のDLLは上書きせず、補助アップデータがACT終了を待ってバックアップを作成してから置換します。失敗時はバックアップから復元します。
+更新は利用者が「更新」ボタンを押した場合だけ行います。ZIPとSHA-256マニフェストをHTTPSで取得し、GitHubの許可済みホスト、ファイルサイズ、SHA-256、ZIP展開先、アセンブリ名、ReleaseタグとDLLバージョンを検証します。ロード中のDLLは上書きしません。検証済みDLLの一時領域パスを画面に表示するため、ACTを終了してから手動で現行DLLを置き換え、ACTを再起動してください。プラグインから外部アップデータを起動することはありません。
 
 ### 現在のリポジトリ設定
 
@@ -79,7 +80,7 @@ GitHubトークンはコードやReleaseへ埋め込まないでください。
 
 ### Release公開手順
 
-1. `FoodBuffOverlay.csproj` と `FoodBuffOverlay.Updater.csproj` のバージョンを同じ `X.Y.Z` に更新します。
+1. `FoodBuffOverlay.csproj` のバージョンを `X.Y.Z` に更新します。
 2. `build.ps1` をRelease構成で実行し、テストが通ることを確認します。
 3. `vX.Y.Z` タグをpushします。
 4. GitHub Actionsが公式ACT ZIPを一時取得して再ビルド・テストし、タグ、DLL、asset名を照合します。

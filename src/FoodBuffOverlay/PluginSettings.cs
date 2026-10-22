@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Xml.Serialization;
 
 namespace FoodBuffOverlay
@@ -59,13 +60,17 @@ namespace FoodBuffOverlay
 
         public void Save(string path)
         {
-            Normalize();
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            var temporary = path + ".tmp";
-            using (var stream = File.Create(temporary))
-                new XmlSerializer(typeof(PluginSettings)).Serialize(stream, this);
-            if (File.Exists(path)) File.Delete(path);
-            File.Move(temporary, path);
+            AtomicSettingsFile.Write(path, Serialize(this));
+        }
+
+        internal static byte[] Serialize(PluginSettings value)
+        {
+            value.Normalize();
+            using (var stream = new MemoryStream())
+            {
+                new XmlSerializer(typeof(PluginSettings)).Serialize(stream, value);
+                return stream.ToArray();
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ namespace FoodBuffOverlay
                     ["RepositoryNotConfigured"]="Update repository is not configured.", ["UpToDate"]="You are using the latest version ({0}).",
                     ["NoStableRelease"]="No stable release was found.", ["UpdateAvailable"]="Update available: {0} → {1}\r\n{2}",
                     ["UpdateNow"]="Update", ["Later"]="Later", ["UpdateSkipped"]="Version {0} was skipped.",
-                    ["PreparingUpdate"]="Downloading and verifying the update…", ["UpdatePrepared"]="Update prepared. Exit ACT to finish replacing the plugin, then restart ACT.",
+                    ["PreparingUpdate"]="Downloading and verifying the update…", ["UpdatePrepared"]="Update verified. After closing ACT, manually copy this file over FoodBuffOverlay.dll, then restart ACT:\r\n{0}", ["UpdatePreparedStatus"]="Update verified. Close ACT and manually replace FoodBuffOverlay.dll, then restart ACT.",
                     ["UpdateFailed"]="Update failed: {0}", ["CheckFailed"]="Update check failed: {0}",
                     ["SupportHeading"]="Support Roxyz0501's development", ["SupportBody"]="If this plugin is useful to you, you can support its development through Ko-fi.",
                     ["SupportOptional"]="Support is completely optional. Every feature remains available with no differences if you do not support.",
@@ -42,7 +42,7 @@ namespace FoodBuffOverlay
                     ["FfxivPluginMissing"]="FFXIV ACT Plugin is not enabled.", ["RepositoryNotReady"]="Waiting for the FFXIV data repository.", ["DataApiMissing"]="The FFXIV combatant data API is unavailable.",
                     ["UpdateAssetMissing"]="The required release asset or SHA-256 manifest is missing.", ["RestartAct"]="Exit and restart ACT to complete the update.",
                     ["NetworkFailure"]="Could not contact GitHub. The plugin will continue normally.", ["InvalidPackage"]="The downloaded update package is invalid.",
-                    ["HashFailed"]="SHA-256 verification failed.", ["UpdaterMissing"]="The updater helper is not installed next to the plugin.",
+                    ["HashFailed"]="SHA-256 verification failed.",
                     ["UpdateFailureGeneric"]="The update could not be prepared safely.", ["DataReadFailed"]="Could not read FFXIV data.", ["BrowserFailure"]="The default browser could not be started."
                     ,["FallbackProbe"]="English fallback"
                 },
@@ -61,7 +61,7 @@ namespace FoodBuffOverlay
                     ["RepositoryNotConfigured"]="更新用GitHubリポジトリが未設定です。", ["UpToDate"]="最新版を使用しています（{0}）。",
                     ["NoStableRelease"]="安定版Releaseが見つかりません。", ["UpdateAvailable"]="更新があります: {0} → {1}\r\n{2}",
                     ["UpdateNow"]="更新する", ["Later"]="後で", ["UpdateSkipped"]="バージョン {0} をスキップしました。",
-                    ["PreparingUpdate"]="更新をダウンロードして検証しています…", ["UpdatePrepared"]="更新準備が完了しました。ACTを終了すると置換されます。その後ACTを再起動してください。",
+                    ["PreparingUpdate"]="更新をダウンロードして検証しています…", ["UpdatePrepared"]="更新を検証しました。ACTを終了後、次のファイルをFoodBuffOverlay.dllへ手動で上書きし、ACTを再起動してください:\r\n{0}", ["UpdatePreparedStatus"]="更新を検証しました。ACTを終了し、FoodBuffOverlay.dllを手動で置き換えてから再起動してください。",
                     ["UpdateFailed"]="更新に失敗しました: {0}", ["CheckFailed"]="更新確認に失敗しました: {0}",
                     ["SupportHeading"]="Roxyz0501の開発を支援", ["SupportBody"]="このプラグインが役立ったと感じた場合は、Ko-fiから開発を支援できます。",
                     ["SupportOptional"]="支援は完全に任意です。支援しなくてもすべての機能を利用でき、機能差はありません。",
@@ -73,7 +73,7 @@ namespace FoodBuffOverlay
                     ["FfxivPluginMissing"]="FFXIV ACT Pluginが有効ではありません。", ["RepositoryNotReady"]="FFXIVデータの準備待ちです。", ["DataApiMissing"]="FFXIVの戦闘者データAPIが見つかりません。",
                     ["UpdateAssetMissing"]="必要なRelease assetまたはSHA-256マニフェストがありません。", ["RestartAct"]="更新を完了するにはACTを終了して再起動してください。",
                     ["NetworkFailure"]="GitHubへ接続できませんでした。プラグインの通常機能は継続します。", ["InvalidPackage"]="ダウンロードした更新パッケージが不正です。",
-                    ["HashFailed"]="SHA-256検証に失敗しました。", ["UpdaterMissing"]="補助アップデータがプラグインと同じフォルダにありません。",
+                    ["HashFailed"]="SHA-256検証に失敗しました。",
                     ["UpdateFailureGeneric"]="更新を安全に準備できませんでした。", ["DataReadFailed"]="FFXIVデータを読み取れませんでした。", ["BrowserFailure"]="既定ブラウザを起動できませんでした。"
                 },
                 [Chinese] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -87,7 +87,7 @@ namespace FoodBuffOverlay
                     ["UpdateSection"]="更新", ["CheckStartup"]="插件启动时检查更新", ["CheckNow"]="立即检查", ["Checking"]="正在检查更新…",
                     ["RepositoryNotConfigured"]="尚未配置更新用GitHub仓库。", ["UpToDate"]="当前已是最新版本（{0}）。", ["NoStableRelease"]="未找到稳定版Release。",
                     ["UpdateAvailable"]="发现更新: {0} → {1}\r\n{2}", ["UpdateNow"]="更新", ["Later"]="稍后", ["UpdateSkipped"]="已跳过版本 {0}。",
-                    ["PreparingUpdate"]="正在下载并验证更新…", ["UpdatePrepared"]="更新已准备完成。退出ACT后将进行替换，之后请重新启动ACT。",
+                    ["PreparingUpdate"]="正在下载并验证更新…", ["UpdatePrepared"]="更新已验证。退出ACT后，请手动将此文件覆盖到FoodBuffOverlay.dll，然后重新启动ACT：\r\n{0}", ["UpdatePreparedStatus"]="更新已验证。请退出ACT，手动替换FoodBuffOverlay.dll，然后重新启动ACT。",
                     ["UpdateFailed"]="更新失败: {0}", ["CheckFailed"]="检查更新失败: {0}",
                     ["SupportHeading"]="支持Roxyz0501的开发", ["SupportBody"]="如果这个插件对您有帮助，可以通过Ko-fi支持开发。",
                     ["SupportOptional"]="支持完全自愿。即使不支持，也可以使用全部功能，不存在任何功能差异。",
@@ -98,7 +98,7 @@ namespace FoodBuffOverlay
                     ["FfxivPluginMissing"]="未启用FFXIV ACT Plugin。", ["RepositoryNotReady"]="正在等待FFXIV数据。", ["DataApiMissing"]="无法使用FFXIV战斗对象数据API。",
                     ["UpdateAssetMissing"]="缺少所需的Release asset或SHA-256清单。", ["RestartAct"]="请退出并重新启动ACT以完成更新。",
                     ["NetworkFailure"]="无法连接GitHub。插件的正常功能将继续运行。", ["InvalidPackage"]="下载的更新包无效。", ["HashFailed"]="SHA-256验证失败。",
-                    ["UpdaterMissing"]="插件目录中缺少更新辅助程序。", ["UpdateFailureGeneric"]="无法安全地准备更新。", ["DataReadFailed"]="无法读取FFXIV数据。", ["BrowserFailure"]="无法启动默认浏览器。"
+                    ["UpdateFailureGeneric"]="无法安全地准备更新。", ["DataReadFailed"]="无法读取FFXIV数据。", ["BrowserFailure"]="无法启动默认浏览器。"
                 },
                 [Korean] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -111,7 +111,7 @@ namespace FoodBuffOverlay
                     ["UpdateSection"]="업데이트", ["CheckStartup"]="플러그인 시작 시 업데이트 확인", ["CheckNow"]="지금 확인", ["Checking"]="업데이트 확인 중…",
                     ["RepositoryNotConfigured"]="업데이트용 GitHub 저장소가 설정되지 않았습니다.", ["UpToDate"]="최신 버전을 사용 중입니다({0}).", ["NoStableRelease"]="안정 버전 Release를 찾지 못했습니다.",
                     ["UpdateAvailable"]="업데이트 있음: {0} → {1}\r\n{2}", ["UpdateNow"]="업데이트", ["Later"]="나중에", ["UpdateSkipped"]="버전 {0}을 건너뛰었습니다.",
-                    ["PreparingUpdate"]="업데이트 다운로드 및 검증 중…", ["UpdatePrepared"]="업데이트 준비가 완료되었습니다. ACT를 종료하면 교체됩니다. 이후 ACT를 다시 시작하세요.",
+                    ["PreparingUpdate"]="업데이트 다운로드 및 검증 중…", ["UpdatePrepared"]="업데이트를 검증했습니다. ACT를 종료한 뒤 이 파일을 FoodBuffOverlay.dll에 수동으로 덮어쓰고 ACT를 다시 시작하세요:\r\n{0}", ["UpdatePreparedStatus"]="업데이트를 검증했습니다. ACT를 종료하고 FoodBuffOverlay.dll을 수동으로 교체한 뒤 다시 시작하세요.",
                     ["UpdateFailed"]="업데이트 실패: {0}", ["CheckFailed"]="업데이트 확인 실패: {0}",
                     ["SupportHeading"]="Roxyz0501의 개발 후원", ["SupportBody"]="이 플러그인이 유용했다면 Ko-fi를 통해 개발을 후원할 수 있습니다.",
                     ["SupportOptional"]="후원은 완전히 선택 사항입니다. 후원하지 않아도 모든 기능을 차이 없이 사용할 수 있습니다.",
@@ -122,7 +122,7 @@ namespace FoodBuffOverlay
                     ["FfxivPluginMissing"]="FFXIV ACT Plugin이 활성화되지 않았습니다.", ["RepositoryNotReady"]="FFXIV 데이터를 기다리는 중입니다.", ["DataApiMissing"]="FFXIV 전투 대상 데이터 API를 사용할 수 없습니다.",
                     ["UpdateAssetMissing"]="필요한 Release asset 또는 SHA-256 매니페스트가 없습니다.", ["RestartAct"]="업데이트 완료를 위해 ACT를 종료하고 다시 시작하세요.",
                     ["NetworkFailure"]="GitHub에 연결할 수 없습니다. 플러그인의 일반 기능은 계속 작동합니다.", ["InvalidPackage"]="다운로드한 업데이트 패키지가 올바르지 않습니다.",
-                    ["HashFailed"]="SHA-256 검증에 실패했습니다.", ["UpdaterMissing"]="플러그인 폴더에 업데이트 도우미가 없습니다.",
+                    ["HashFailed"]="SHA-256 검증에 실패했습니다.",
                     ["UpdateFailureGeneric"]="업데이트를 안전하게 준비할 수 없습니다.", ["DataReadFailed"]="FFXIV 데이터를 읽을 수 없습니다.", ["BrowserFailure"]="기본 브라우저를 시작할 수 없습니다."
                 }
             };

@@ -8,7 +8,6 @@ namespace FoodBuffOverlay
         public const string RepositoryName = "food-buff-overlay";
         public const string PluginAssemblyName = "FoodBuffOverlay";
         public const string PluginFileName = "FoodBuffOverlay.dll";
-        public const string UpdaterFileName = "FoodBuffOverlay.Updater.exe";
 
         public static bool IsConfigured => IsSafeSegment(RepositoryOwner) && IsSafeSegment(RepositoryName);
 

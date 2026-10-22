@@ -9,7 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\FoodBuffOverlay\FoodBuffOverlay.csproj" />
-    <ProjectReference Include="..\..\src\FoodBuffOverlay.Updater\FoodBuffOverlay.Updater.csproj" />
     <Reference Include="Advanced Combat Tracker">
       <HintPath>$(ActPath)</HintPath>
       <Private>true</Private>
