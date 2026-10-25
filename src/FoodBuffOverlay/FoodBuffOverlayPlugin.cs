@@ -50,7 +50,7 @@ namespace FoodBuffOverlay
             overlay = new OverlayForm(settings);
             overlay.ApplySettings(settings, true);
             ActGlobals.oFormActMain.OnLogLineRead += OnLogLineRead;
-            logTracker.ReplayCurrentLog();
+            var activeLogPath = ActGlobals.oFormActMain.LogFilePath;
             refreshTimer = new System.Windows.Forms.Timer { Interval = 5000 };
             refreshTimer.Tick += PollStatus;
             refreshTimer.Start();
@@ -61,6 +61,7 @@ namespace FoodBuffOverlay
             settingsSaveTimer.Tick += SaveSettings;
             settingsSaveTimer.Start();
             PollStatus(null, EventArgs.Empty);
+            backgroundTasks.TryStart(token => logTracker.ReplayCurrentLogAsync(activeLogPath, token));
             status.Text = Localization.Get(settings.Language, "Started");
             if (settings.CheckUpdatesOnStartup)
                 CheckForUpdates(false);
@@ -70,7 +71,9 @@ namespace FoodBuffOverlay
         {
             if (settings == null || Volatile.Read(ref stopping) != 0) return;
             var snapshot = dataSource.Read(settings.WarningMinutes);
-            sampledState = logTracker.Resolve(snapshot, dataSource.CurrentPlayerId, settings.WarningMinutes);
+            var playerId = dataSource.CurrentPlayerId;
+            logTracker.SetPlayerId(playerId);
+            sampledState = logTracker.Resolve(snapshot, playerId, settings.WarningMinutes);
             RefreshDisplay(null, EventArgs.Empty);
             var error = string.IsNullOrWhiteSpace(dataSource.LastErrorKey)
                 ? (string.IsNullOrWhiteSpace(dataSource.LastError) ? null : Localization.Get(settings.Language, "DataReadFailed"))

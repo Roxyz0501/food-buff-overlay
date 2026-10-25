@@ -24,6 +24,7 @@ internal static class Program
             VerifySemVersion();
             VerifyReleaseParser();
             VerifyHashAndZipSafety();
+            VerifyLogReplayBoundsAndTargetRetention();
             VerifySettingsPersistenceLifecycle();
             VerifyBackgroundTaskShutdown();
             VerifySupportLink();
@@ -39,6 +40,81 @@ internal static class Program
             return 1;
         }
     }
+
+    private static void VerifyLogReplayBoundsAndTargetRetention()
+    {
+        var root = TemporaryDirectory();
+        try
+        {
+            var path = Path.Combine(root, "synthetic.log");
+            var old = DateTime.Now.AddMinutes(-1);
+            var beforeBoundary = StatusLine(26, old, 0x100, 3600);
+            var replayOnly = StatusLine(26, old.AddSeconds(1), 0x102, 3600);
+            File.WriteAllText(path, beforeBoundary + "\r\n" + replayOnly + "\r\n", new UTF8Encoding(false));
+            var tracker = new FoodBuffLogTracker();
+            var liveRemoval = StatusLine(30, DateTime.Now, 0x100, 0);
+            var appendedAfterBoundary = StatusLine(26, DateTime.Now.AddSeconds(1), 0x101, 3600);
+            tracker.ReplayCurrentLogAsync(path, CancellationToken.None, FoodBuffLogTracker.MaximumReplayBytes,
+                FoodBuffLogTracker.ReplayTimeLimitMilliseconds, () =>
+                {
+                    tracker.ProcessLine(liveRemoval);
+                    File.AppendAllText(path, appendedAfterBoundary + "\r\n", new UTF8Encoding(false));
+                }).GetAwaiter().GetResult();
+
+            Assert(tracker.Resolve(FoodBuffState.Missing(), 0x100, 12).Condition == FoodBuffCondition.Missing,
+                "A delayed replay event overwrote a newer live removal.");
+            Assert(tracker.Resolve(FoodBuffState.Missing(), 0x101, 12).Condition == FoodBuffCondition.Missing,
+                "Replay read bytes appended after its fixed boundary.");
+            Assert(tracker.Resolve(FoodBuffState.Missing(), 0x102, 12).Condition == FoodBuffCondition.Active,
+                "Replay did not recover a status present at the captured boundary.");
+
+            var clippedPath = Path.Combine(root, "clipped.log");
+            var clipped = StatusLine(26, old, 0x201, 3600);
+            var complete = StatusLine(26, old.AddSeconds(2), 0x202, 3600);
+            var content = clipped + "\r\n" + complete + "\r\n";
+            File.WriteAllText(clippedPath, content, new UTF8Encoding(false));
+            var limited = new FoodBuffLogTracker();
+            limited.ReplayCurrentLogAsync(clippedPath, CancellationToken.None, content.Length - clipped.Length / 2,
+                FoodBuffLogTracker.ReplayTimeLimitMilliseconds, null).GetAwaiter().GetResult();
+            Assert(limited.Resolve(FoodBuffState.Missing(), 0x201, 12).Condition == FoodBuffCondition.Missing,
+                "Replay accepted the clipped first partial line.");
+            Assert(limited.Resolve(FoodBuffState.Missing(), 0x202, 12).Condition == FoodBuffCondition.Active,
+                "Replay failed to process a complete line within its byte budget.");
+
+            var timeoutTracker = new FoodBuffLogTracker();
+            timeoutTracker.ReplayCurrentLogAsync(clippedPath, CancellationToken.None, FoodBuffLogTracker.MaximumReplayBytes,
+                1, () => Thread.Sleep(10)).GetAwaiter().GetResult();
+            Assert(timeoutTracker.TrackedTargetCount == 0, "Replay exceeded its elapsed-time budget.");
+
+            using (var cancelled = new CancellationTokenSource())
+            {
+                AssertThrows<OperationCanceledException>(() => limited.ReplayCurrentLogAsync(path, cancelled.Token,
+                    FoodBuffLogTracker.MaximumReplayBytes, FoodBuffLogTracker.ReplayTimeLimitMilliseconds,
+                    () => cancelled.Cancel()).GetAwaiter().GetResult(), "Replay ignored cancellation at its captured boundary.");
+            }
+
+            var cap = new FoodBuffLogTracker();
+            cap.Resolve(FoodBuffState.Missing(), 1, 12); // Identify and retain the player's record before the target flood.
+            Assert(cap.ProcessLine(StatusLine(26, DateTime.Now, 1, 3600)), "Player status line was not parsed.");
+            for (uint id = 2; id < 5002; id++)
+                cap.ProcessLine(StatusLine(26, DateTime.Now.AddSeconds(id), id, 3600));
+            Assert(cap.TrackedTargetCount <= 4096, "Target state exceeded its hard cap.");
+            Assert(cap.Resolve(FoodBuffState.Missing(), 1, 12).Condition == FoodBuffCondition.Active,
+                "Target eviction lost the player's active status.");
+            cap.PruneExpiredStates(DateTime.UtcNow.AddMinutes(31));
+            Assert(cap.TrackedTargetCount == 1 && cap.Resolve(FoodBuffState.Missing(), 1, 12).Condition == FoodBuffCondition.Active,
+                "Retention pruning did not discard stale other targets while retaining the player.");
+
+            Assert(!cap.ProcessLine("00|not a status event|30|name|1|source|name|00000001|target"),
+                "Unrelated log lines should be rejected before full status parsing.");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    private static string StatusLine(int type, DateTime timestamp, uint targetId, double duration) =>
+        type.ToString(CultureInfo.InvariantCulture) + "|" + timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture) +
+        "|0030|Well Fed|" + duration.ToString(CultureInfo.InvariantCulture) + "|00000001|Player|" +
+        targetId.ToString("X8", CultureInfo.InvariantCulture) + "|Target";
 
     private static void VerifySettingsPersistenceLifecycle()
     {
