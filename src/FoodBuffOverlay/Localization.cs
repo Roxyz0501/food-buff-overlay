@@ -18,6 +18,7 @@ namespace FoodBuffOverlay
                 [English] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Duty"]="Show only in duties", ["Party"]="Show party food list",
+                    ["PartyLocked"]="Lock party overlay (click-through)", ["PartyPreview"]="Preview party overlay",
                     ["PluginTab"]="Food Buff Overlay", ["HeaderSubtitle"]="Shows food warnings only when needed",
                     ["TabSettings"]="Settings", ["TabUpdate"]="Updates", ["TabSupport"]="Support", ["Language"]="Language",
                     ["LanguageHint"]="Changes are applied immediately.", ["Enabled"]="Enable overlay",
@@ -50,6 +51,7 @@ namespace FoodBuffOverlay
                 [Japanese] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Duty"]="コンテンツ中のみ表示する", ["Party"]="PTメンバーの食事一覧を表示する",
+                    ["PartyLocked"]="PT一覧の位置を固定（クリック透過）", ["PartyPreview"]="PT一覧の位置調整プレビュー",
                     ["PluginTab"]="食事バフオーバーレイ", ["HeaderSubtitle"]="食事切れと残り時間を、必要なときだけ通知します",
                     ["TabSettings"]="設定", ["TabUpdate"]="更新", ["TabSupport"]="支援", ["Language"]="言語",
                     ["LanguageHint"]="変更はすぐに反映されます。", ["Enabled"]="オーバーレイを有効にする",
@@ -81,6 +83,7 @@ namespace FoodBuffOverlay
                 [Chinese] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Duty"]="仅在副本中显示", ["Party"]="显示小队成员食物效果",
+                    ["PartyLocked"]="锁定小队列表位置（鼠标穿透）", ["PartyPreview"]="预览小队列表位置",
                     ["PluginTab"]="食物增益悬浮窗", ["HeaderSubtitle"]="仅在需要时显示食物效果提醒",
                     ["TabSettings"]="设置", ["TabUpdate"]="更新", ["TabSupport"]="支持", ["Language"]="语言", ["LanguageHint"]="更改会立即生效。",
                     ["Enabled"]="启用悬浮窗", ["Locked"]="锁定位置和大小（鼠标穿透）", ["Preview"]="显示位置调整预览",
@@ -106,6 +109,7 @@ namespace FoodBuffOverlay
                 [Korean] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Duty"]="임무 중에만 표시", ["Party"]="파티원 음식 효과 목록 표시",
+                    ["PartyLocked"]="파티 목록 위치 고정 (클릭 통과)", ["PartyPreview"]="파티 목록 위치 미리보기",
                     ["PluginTab"]="음식 버프 오버레이", ["HeaderSubtitle"]="필요할 때만 음식 버프 경고를 표시합니다",
                     ["TabSettings"]="설정", ["TabUpdate"]="업데이트", ["TabSupport"]="후원", ["Language"]="언어", ["LanguageHint"]="변경 사항은 즉시 적용됩니다.",
                     ["Enabled"]="오버레이 사용", ["Locked"]="위치와 크기 잠금(클릭 통과)", ["Preview"]="위치 조정 미리보기 표시",

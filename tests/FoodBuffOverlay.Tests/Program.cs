@@ -33,6 +33,26 @@ internal static class Program
             var placement = new PluginSettings { PartyLeft = Screen.PrimaryScreen.WorkingArea.Left + 40, PartyTop = Screen.PrimaryScreen.WorkingArea.Top + 60 };
             using (var partyWindow = new PartyForm(placement))
             {
+                var source = new FfxivDataSource();
+                var tracker = new FoodBuffLogTracker();
+                placement.PositionPreview = true;
+                placement.Locked = true;
+                placement.DutyOnly = true;
+                partyWindow.RefreshRows(source, tracker);
+                Assert(!partyWindow.Visible, "Personal preview must not display the party window");
+                placement.PartyPreview = true;
+                partyWindow.RefreshRows(source, tracker);
+                var handle = partyWindow.Handle;
+                Assert(partyWindow.Visible && partyWindow.Opacity > 0 && partyWindow.Controls[0].Text.Contains("11:59"), "Party preview in solo/outside duty");
+                placement.PartyLocked = true;
+                partyWindow.RefreshRows(source, tracker);
+                Assert(handle == partyWindow.Handle, "Locking must preserve the party window");
+                placement.PartyPreview = false;
+                placement.PartyOverlay = true;
+                placement.DutyOnly = false;
+                source.Party.Add(Tuple.Create(3u, "Test Member", FoodBuffState.Missing()));
+                partyWindow.RefreshRows(source, tracker);
+                Assert(partyWindow.Visible && partyWindow.Controls[0].Text.Contains("Test Member"), "Live party list");
                 placement.Left += 80;
                 partyWindow.RefreshRows(new FfxivDataSource(), new FoodBuffLogTracker());
                 Assert(partyWindow.Left == placement.PartyLeft && partyWindow.Top == placement.PartyTop, "Party position must be independent");
@@ -289,6 +309,8 @@ internal static class Program
             var all = Descendants(control).ToList();
             var tabs = all.OfType<TabControl>().Single();
             var combo = all.OfType<ComboBox>().Single();
+            Assert(!Descendants(tabs.TabPages[0]).Any(x => x.Text.Contains("Roxyz0501")), "Author belongs on Updates");
+            Assert(Descendants(tabs.TabPages[1]).OfType<LinkLabel>().Single().Text.Contains("food-buff-overlay"), "Repository link missing");
             Assert(tabs.TabPages.Count == 3, "Settings, Updates, and Support must be separate tabs.");
             Assert(tabs.TabPages[1].Text == "Updates" && tabs.TabPages[2].Text == "Support", "English update/support tabs are incorrect.");
             combo.SelectedIndex = 1; Assert(tabs.TabPages[1].Text == "更新" && tabs.TabPages[2].Text == "支援", "Immediate Japanese switch failed.");

@@ -74,7 +74,7 @@ namespace FoodBuffOverlay
         {
 
                 var buffs = ReadMember(player, "NetworkBuffs") as IEnumerable;
-                if (buffs == null) throw new MissingMemberException(player.GetType().FullName, "NetworkBuffs");
+                if (buffs == null) return FoodBuffState.Unavailable();
                 foreach (var buff in buffs)
                 {
                     if (buff == null || ReadUInt(buff, "BuffID") != WellFedStatusId) continue;

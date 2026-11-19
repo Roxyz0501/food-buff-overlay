@@ -41,11 +41,11 @@ namespace FoodBuffOverlay
         private readonly Label supportOptional = NewLabel();
         private readonly Button supportButton = new Button();
         private readonly Label supportStatus = NewLabel();
-        private readonly TabControl tabs = new TabControl();
+        private readonly Roxyz.Act.UI.PluginTabs tabs;
         private readonly TabPage settingsTab = new TabPage();
         private readonly TabPage updateTab = new TabPage();
         private readonly TabPage supportTab = new TabPage();
-        private int hoveredTabIndex = -1;
+        private readonly CheckBox partyLocked = Check(), partyPreview = Check();
         private bool loading = true;
         private string updateMessageKey = "RepositoryNotConfigured";
         private object[] updateMessageArgs = new object[0];
@@ -67,6 +67,8 @@ namespace FoodBuffOverlay
             locked.Checked = settings.Locked;
             preview.Checked = settings.PositionPreview;
             duty.Checked = settings.DutyOnly; party.Checked = settings.PartyOverlay;
+            partyLocked.Checked = settings.PartyLocked;
+            partyPreview.Checked = settings.PartyPreview;
             checkStartup.Checked = settings.CheckUpdatesOnStartup;
             minutes.Value = settings.WarningMinutes;
             opacity.Value = settings.OpacityPercent;
@@ -81,9 +83,7 @@ namespace FoodBuffOverlay
             language.SelectedIndex = LanguageIndex(settings.Language);
 
             var header = BuildHeader();
-            tabs.Dock = DockStyle.Fill;
-            tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
-            tabs.Padding = new Point(18, 6);
+            tabs = new Roxyz.Act.UI.PluginTabs(supportTab);
             settingsTab.BackColor = Color.White;
             settingsTab.Padding = new Padding(4);
             updateTab.BackColor = Color.White;
@@ -96,10 +96,6 @@ namespace FoodBuffOverlay
             tabs.TabPages.Add(settingsTab);
             tabs.TabPages.Add(updateTab);
             tabs.TabPages.Add(supportTab);
-            tabs.DrawItem += DrawTab;
-            tabs.MouseMove += OnTabsMouseMove;
-            tabs.MouseLeave += delegate { hoveredTabIndex = -1; tabs.Invalidate(); };
-
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -111,6 +107,8 @@ namespace FoodBuffOverlay
             locked.CheckedChanged += Changed;
             preview.CheckedChanged += Changed;
             duty.CheckedChanged += Changed; party.CheckedChanged += Changed;
+            partyLocked.CheckedChanged += Changed;
+            partyPreview.CheckedChanged += Changed;
             checkStartup.CheckedChanged += Changed;
             minutes.ValueChanged += Changed;
             opacity.ValueChanged += Changed;
@@ -152,7 +150,7 @@ namespace FoodBuffOverlay
             hint.ForeColor = Color.FromArgb(80, 80, 88); hint.Padding = new Padding(0, 9, 0, 4); AddWide(layout, hint, 6);
             connection.ForeColor = Color.FromArgb(42, 109, 158); connection.AutoSize = false; connection.Height = 30; AddWide(layout, connection, 7);
             AddWide(layout, duty, 8); AddWide(layout, party, 9);
-            authorVersion.ForeColor = Color.FromArgb(113, 126, 146); AddWide(layout, authorVersion, 10);
+            AddWide(layout, partyLocked, 10); AddWide(layout, partyPreview, 11);
             for (var i = 0; i < 3; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
             panel.Controls.Add(layout);
             return panel;
@@ -167,6 +165,14 @@ namespace FoodBuffOverlay
             var updateButtons = Flow(); StyleSecondary(checkNow); StylePrimary(updateNow); StyleSecondary(later); later.Visible = false;
             updateButtons.Margin = new Padding(0, 0, 0, 12); updateButtons.Controls.Add(checkNow); updateButtons.Controls.Add(updateNow); updateButtons.Controls.Add(later); layout.Controls.Add(updateButtons, 0, 2);
             updateStatus.AutoSize = false; updateStatus.Width = 700; updateStatus.Height = 150; updateStatus.ForeColor = Color.FromArgb(73, 83, 98); layout.Controls.Add(updateStatus, 0, 3);
+            layout.Controls.Add(authorVersion, 0, 4);
+            var repository = new LinkLabel { AutoSize = true, Text = "GitHub · " + UpdateConfiguration.RepositoryOwner + "/" + UpdateConfiguration.RepositoryName };
+            repository.LinkClicked += delegate
+            {
+                try { Process.Start(new ProcessStartInfo("https://github.com/" + UpdateConfiguration.RepositoryOwner + "/" + UpdateConfiguration.RepositoryName) { UseShellExecute = true }); }
+                catch { SetUpdateMessage("LinkFailed", T("BrowserFailure")); }
+            };
+            layout.Controls.Add(repository, 0, 5);
             panel.Controls.Add(layout);
             return panel;
         }
@@ -191,6 +197,8 @@ namespace FoodBuffOverlay
         public void ApplyTo(PluginSettings value)
         {
             value.DutyOnly = duty.Checked; value.PartyOverlay = party.Checked;
+            value.PartyLocked = partyLocked.Checked;
+            value.PartyPreview = partyPreview.Checked;
             value.OverlayEnabled = enabled.Checked; value.Locked = locked.Checked; value.PositionPreview = preview.Checked;
             value.WarningMinutes = (int)minutes.Value; value.OpacityPercent = opacity.Value;
             value.Language = SelectedLanguage; value.CheckUpdatesOnStartup = checkStartup.Checked; value.Normalize();
@@ -253,8 +261,9 @@ namespace FoodBuffOverlay
             ApplyFontFamily(this, family);
             headerTitle.Text = T("PluginTab"); headerSubtitle.Text = T("HeaderSubtitle");
             headerTitle.Font = new Font(family, 17f, FontStyle.Bold); headerSubtitle.Font = new Font(family, 8.5f);
-            tabs.Font = new Font(family, 9f, FontStyle.Bold); settingsTab.Text = T("TabSettings"); updateTab.Text = T("TabUpdate"); supportTab.Text = T("TabSupport");
+            tabs.SetLanguageFont(family); settingsTab.Text = T("TabSettings"); updateTab.Text = T("TabUpdate"); supportTab.Text = T("TabSupport");
             duty.Text = T("Duty"); party.Text = T("Party");
+            partyLocked.Text = T("PartyLocked"); partyPreview.Text = T("PartyPreview");
             enabled.Text = T("Enabled"); locked.Text = T("Locked"); preview.Text = T("Preview");
             warningLabel.Text = T("WarningThreshold"); minuteSuffix.Text = T("MinutesSuffix"); opacityLabel.Text = T("Opacity");
             languageLabel.Text = T("Language"); languageHint.Text = T("LanguageHint"); hint.Text = T("Hint");
@@ -272,25 +281,6 @@ namespace FoodBuffOverlay
         private void RefreshUpdateMessage() { updateStatus.Text = T(updateMessageKey, updateMessageArgs); }
         private string T(string key, params object[] args) => Localization.Get(SelectedLanguage, key, args);
         private string SelectedLanguage => language.SelectedItem is LanguageItem ? ((LanguageItem)language.SelectedItem).Code : Localization.English;
-
-        private void OnTabsMouseMove(object sender, MouseEventArgs e)
-        {
-            var next = -1;
-            for (var i = 0; i < tabs.TabCount; i++) if (tabs.GetTabRect(i).Contains(e.Location)) { next = i; break; }
-            if (next == hoveredTabIndex) return; hoveredTabIndex = next; tabs.Invalidate();
-        }
-
-        private void DrawTab(object sender, DrawItemEventArgs e)
-        {
-            var support = tabs.TabPages[e.Index] == supportTab; var selected = e.Index == tabs.SelectedIndex; var hovered = e.Index == hoveredTabIndex;
-            var background = selected ? Color.White : Color.FromArgb(240, 242, 245);
-            var foreground = Color.FromArgb(42, 53, 69);
-            if (support) { background = selected ? Color.FromArgb(255, 245, 226) : hovered ? Color.FromArgb(255, 238, 207) : Color.FromArgb(250, 231, 197); foreground = selected ? Color.FromArgb(137, 62, 7) : hovered ? Color.FromArgb(157, 72, 8) : Color.FromArgb(174, 84, 13); }
-            else if (hovered && !selected) background = Color.FromArgb(247, 248, 250);
-            using (var brush = new SolidBrush(background)) e.Graphics.FillRectangle(brush, e.Bounds);
-            TextRenderer.DrawText(e.Graphics, tabs.TabPages[e.Index].Text, tabs.Font, e.Bounds, foreground, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
-            if (support && selected) using (var pen = new Pen(Color.FromArgb(213, 137, 32), 2f)) e.Graphics.DrawLine(pen, e.Bounds.Left + 4, e.Bounds.Bottom - 2, e.Bounds.Right - 4, e.Bounds.Bottom - 2);
-        }
 
         private void OpenSupportLink(object sender, EventArgs e)
         {

@@ -26,9 +26,10 @@ namespace FoodBuffOverlay
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ShowInTaskbar = false;
+            Opacity = 0.96;
             TopMost = true;
             this.settings = settings;
-            locked = settings.Locked;
+            locked = settings.PartyLocked;
             Controls.Add(rows);
             var saved = new Point(settings.PartyLeft, settings.PartyTop);
             Location = Screen.AllScreens.Any(s => s.WorkingArea.Contains(saved)) ? saved : Screen.PrimaryScreen.WorkingArea.Location;
@@ -48,20 +49,20 @@ namespace FoodBuffOverlay
         protected override bool ShowWithoutActivation => true;
         protected override CreateParams CreateParams
         {
-            get { var p = base.CreateParams; p.ExStyle |= 0x08080080; if (locked) p.ExStyle |= 0x20; return p; }
+            get { var p = base.CreateParams; p.ExStyle |= 0x08000080; if (locked) p.ExStyle |= 0x20; return p; }
         }
         public void RefreshRows(FfxivDataSource source, FoodBuffLogTracker tracker)
         {
-            if (locked != settings.Locked)
+            if (locked != settings.PartyLocked)
             {
-                locked = settings.Locked;
+                locked = settings.PartyLocked;
                 if (IsHandleCreated)
                 {
                     var style = GetWindowLong(Handle, -20);
                     SetWindowLong(Handle, -20, locked ? style | 0x20 : style & ~0x20);
                 }
             }
-            if (!settings.PartyOverlay || (source.Party.Count == 0 && !settings.PositionPreview) || (settings.DutyOnly && !source.InDuty))
+            if (!settings.PartyPreview && (!settings.PartyOverlay || source.Party.Count == 0 || (settings.DutyOnly && !source.InDuty)))
             {
                 if (Visible) Hide();
                 return;
@@ -69,10 +70,10 @@ namespace FoodBuffOverlay
             var text = string.Join(Environment.NewLine, source.Party.Select(member =>
             {
                 var state = tracker.ResolveMember(member.Item3.At(DateTime.UtcNow, settings.WarningMinutes), member.Item1, settings.WarningMinutes);
-                return member.Item2 + "    " + (state.Condition == FoodBuffCondition.Missing
+                return member.Item2 + "    " + (state.Condition == FoodBuffCondition.Unavailable ? "—" : state.Condition == FoodBuffCondition.Missing
                     ? Localization.Get(settings.Language,"OverlayMissing") : OverlayForm.FormatRemaining(state.Remaining));
             }));
-            if (source.Party.Count == 0) text = Localization.Get(settings.Language,"Party") + Environment.NewLine + Localization.Get(settings.Language,"OverlayPreview");
+            if (source.Party.Count == 0) text = Localization.Get(settings.Language,"OverlayPreview") + Environment.NewLine + "Player A    11:59" + Environment.NewLine + "Player B    " + Localization.Get(settings.Language,"OverlayMissing");
             if (rows.Text != text) rows.Text = text;
             if (!Visible) Show();
         }
