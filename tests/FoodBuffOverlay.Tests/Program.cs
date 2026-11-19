@@ -30,6 +30,13 @@ internal static class Program
             VerifySupportLink();
             VerifyLocalizedUi();
             VerifyParty();
+            var placement = new PluginSettings { PartyLeft = Screen.PrimaryScreen.WorkingArea.Left + 40, PartyTop = Screen.PrimaryScreen.WorkingArea.Top + 60 };
+            using (var partyWindow = new PartyForm(placement))
+            {
+                placement.Left += 80;
+                partyWindow.RefreshRows(new FfxivDataSource(), new FoodBuffLogTracker());
+                Assert(partyWindow.Left == placement.PartyLeft && partyWindow.Top == placement.PartyTop, "Party position must be independent");
+            }
             VerifyRepositoryIsConfigured();
             Console.WriteLine("FoodBuffOverlay tests: PASS");
             return 0;

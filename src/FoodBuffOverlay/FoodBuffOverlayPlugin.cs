@@ -48,7 +48,7 @@ namespace FoodBuffOverlay
             pluginPage = pluginScreenSpace;
             pluginScreenSpace.Text = Localization.Get(settings.Language, "PluginTab");
             pluginScreenSpace.Controls.Add(control);
-            partyForm = new PartyForm();
+            partyForm = new PartyForm(settings);
             overlay = new OverlayForm(settings) { Allowed = !settings.DutyOnly };
             overlay.ApplySettings(settings, true);
             ActGlobals.oFormActMain.OnLogLineRead += OnLogLineRead;
@@ -89,7 +89,7 @@ namespace FoodBuffOverlay
             if (settings == null || Volatile.Read(ref stopping) != 0) return;
             ApplyPendingUpdate();
             overlay?.SetState(sampledState.At(DateTime.UtcNow, settings.WarningMinutes));
-            partyForm?.RefreshRows(settings, dataSource, logTracker, overlay.Bounds);
+            partyForm?.RefreshRows(dataSource, logTracker);
         }
 
         private void OnLogLineRead(bool isImport, LogLineEventArgs logInfo)

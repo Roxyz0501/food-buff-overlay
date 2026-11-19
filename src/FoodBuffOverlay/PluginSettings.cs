@@ -14,6 +14,8 @@ namespace FoodBuffOverlay
         public bool PositionPreview { get; set; }
         public bool DutyOnly { get; set; }
         public bool PartyOverlay { get; set; }
+        public int PartyLeft { get; set; } = 120;
+        public int PartyTop { get; set; } = 240;
         public int WarningMinutes { get; set; } = 12;
         public int OpacityPercent { get; set; } = 94;
         public int Left { get; set; } = 120;
