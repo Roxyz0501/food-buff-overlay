@@ -15,6 +15,7 @@ namespace FoodBuffOverlay
         private readonly CheckBox enabled = Check();
         private readonly CheckBox locked = Check();
         private readonly CheckBox preview = Check();
+        private readonly CheckBox duty = Check(), party = Check();
         private readonly CheckBox checkStartup = Check();
         private readonly NumericUpDown minutes = new NumericUpDown { Minimum = 1, Maximum = 60, Width = 74 };
         private readonly TrackBar opacity = new TrackBar { Minimum = 35, Maximum = 100, TickFrequency = 5, Width = 220 };
@@ -65,6 +66,7 @@ namespace FoodBuffOverlay
             enabled.Checked = settings.OverlayEnabled;
             locked.Checked = settings.Locked;
             preview.Checked = settings.PositionPreview;
+            duty.Checked = settings.DutyOnly; party.Checked = settings.PartyOverlay;
             checkStartup.Checked = settings.CheckUpdatesOnStartup;
             minutes.Value = settings.WarningMinutes;
             opacity.Value = settings.OpacityPercent;
@@ -108,6 +110,7 @@ namespace FoodBuffOverlay
             enabled.CheckedChanged += Changed;
             locked.CheckedChanged += Changed;
             preview.CheckedChanged += Changed;
+            duty.CheckedChanged += Changed; party.CheckedChanged += Changed;
             checkStartup.CheckedChanged += Changed;
             minutes.ValueChanged += Changed;
             opacity.ValueChanged += Changed;
@@ -148,7 +151,8 @@ namespace FoodBuffOverlay
             var languagePanel = Flow(); languagePanel.Controls.Add(language); languageHint.Margin = new Padding(8, 6, 0, 0); languagePanel.Controls.Add(languageHint); layout.Controls.Add(languagePanel, 1, 5);
             hint.ForeColor = Color.FromArgb(80, 80, 88); hint.Padding = new Padding(0, 9, 0, 4); AddWide(layout, hint, 6);
             connection.ForeColor = Color.FromArgb(42, 109, 158); connection.AutoSize = false; connection.Height = 30; AddWide(layout, connection, 7);
-            authorVersion.ForeColor = Color.FromArgb(113, 126, 146); AddWide(layout, authorVersion, 8);
+            AddWide(layout, duty, 8); AddWide(layout, party, 9);
+            authorVersion.ForeColor = Color.FromArgb(113, 126, 146); AddWide(layout, authorVersion, 10);
             for (var i = 0; i < 3; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
             panel.Controls.Add(layout);
             return panel;
@@ -186,6 +190,7 @@ namespace FoodBuffOverlay
 
         public void ApplyTo(PluginSettings value)
         {
+            value.DutyOnly = duty.Checked; value.PartyOverlay = party.Checked;
             value.OverlayEnabled = enabled.Checked; value.Locked = locked.Checked; value.PositionPreview = preview.Checked;
             value.WarningMinutes = (int)minutes.Value; value.OpacityPercent = opacity.Value;
             value.Language = SelectedLanguage; value.CheckUpdatesOnStartup = checkStartup.Checked; value.Normalize();
@@ -249,6 +254,7 @@ namespace FoodBuffOverlay
             headerTitle.Text = T("PluginTab"); headerSubtitle.Text = T("HeaderSubtitle");
             headerTitle.Font = new Font(family, 17f, FontStyle.Bold); headerSubtitle.Font = new Font(family, 8.5f);
             tabs.Font = new Font(family, 9f, FontStyle.Bold); settingsTab.Text = T("TabSettings"); updateTab.Text = T("TabUpdate"); supportTab.Text = T("TabSupport");
+            duty.Text = T("Duty"); party.Text = T("Party");
             enabled.Text = T("Enabled"); locked.Text = T("Locked"); preview.Text = T("Preview");
             warningLabel.Text = T("WarningThreshold"); minuteSuffix.Text = T("MinutesSuffix"); opacityLabel.Text = T("Opacity");
             languageLabel.Text = T("Language"); languageHint.Text = T("LanguageHint"); hint.Text = T("Hint");

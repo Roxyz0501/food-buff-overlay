@@ -1,6 +1,7 @@
 using Advanced_Combat_Tracker;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -18,8 +19,14 @@ namespace FoodBuffOverlay
         public string LastErrorKey { get; private set; }
         public uint CurrentPlayerId { get; private set; }
 
-        public FoodBuffState Read(int warningMinutes)
+        private MethodInfo territory, resources;
+        private IDictionary<uint,string> duties;
+        public bool InDuty { get; private set; }
+        public readonly List<Tuple<uint,string,FoodBuffState>> Party = new List<Tuple<uint,string,FoodBuffState>>();
+
+        public FoodBuffState Read(int warningMinutes, bool checkDuty, bool checkParty)
         {
+            Party.Clear(); InDuty = false;
             if (repository == null && !TryConnect()) return FoodBuffState.Unavailable();
             try
             {
@@ -28,16 +35,43 @@ namespace FoodBuffOverlay
                 var combatants = getCombatants.Invoke(repository, null) as IEnumerable;
                 if (playerId == 0 || combatants == null) return FoodBuffState.Unavailable();
 
+                if (checkDuty && resources != null && territory != null)
+                {
+                    if (duties == null)
+                    {
+                        var key = Enum.Parse(resources.GetParameters()[0].ParameterType, "ZoneList_EN");
+                        duties = resources.Invoke(repository, new[] {key}) as IDictionary<uint,string>;
+                    }
+                    InDuty = duties != null && duties.ContainsKey(Convert.ToUInt32(territory.Invoke(repository, null)));
+                }
+                checkParty &= !checkDuty || InDuty;
                 object player = null;
                 foreach (var combatant in combatants)
                 {
                     if (combatant != null && ReadUInt(combatant, "ID") == playerId)
                     {
                         player = combatant;
-                        break;
+                        if (!checkParty) break;
                     }
+                    else if (checkParty && combatant != null && ReadUInt(combatant,"type") == 1 && ReadUInt(combatant,"PartyType") == 1)
+                        Party.Add(Tuple.Create(ReadUInt(combatant,"ID"), Convert.ToString(ReadMember(combatant,"Name")), BuffState(combatant, warningMinutes)));
                 }
-                if (player == null) return FoodBuffState.Unavailable();
+                if (player == null) { Party.Clear(); return FoodBuffState.Unavailable(); }
+                var own = BuffState(player, warningMinutes);
+                if (Party.Count > 0) Party.Insert(0, Tuple.Create(playerId, Convert.ToString(ReadMember(player,"Name")), own));
+                LastError = LastErrorKey = null;
+                return own;
+            }
+            catch (Exception ex)
+            {
+                Party.Clear(); InDuty = false; LastError = ex.GetBaseException().Message; LastErrorKey = null;
+                repository = null; CurrentPlayerId = 0;
+                return FoodBuffState.Unavailable();
+            }
+        }
+
+        private FoodBuffState BuffState(object player, int warningMinutes)
+        {
 
                 var buffs = ReadMember(player, "NetworkBuffs") as IEnumerable;
                 if (buffs == null) throw new MissingMemberException(player.GetType().FullName, "NetworkBuffs");
@@ -63,15 +97,7 @@ namespace FoodBuffOverlay
                 LastError = null;
                 LastErrorKey = null;
                 return FoodBuffState.Missing();
-            }
-            catch (Exception ex)
-            {
-                LastError = ex.GetBaseException().Message;
-                LastErrorKey = null;
-                repository = null;
-                CurrentPlayerId = 0;
-                return FoodBuffState.Unavailable();
-            }
+
         }
 
         private bool TryConnect()
@@ -85,6 +111,8 @@ namespace FoodBuffOverlay
                 if (repository == null) { LastError = null; LastErrorKey = "RepositoryNotReady"; return false; }
                 var type = repository.GetType().GetInterfaces()
                     .FirstOrDefault(x => x.FullName == "FFXIV_ACT_Plugin.Common.IDataRepository") ?? repository.GetType();
+                duties = null;
+                resources = type.GetMethod("GetResourceDictionary"); territory = type.GetMethod("GetCurrentTerritoryID");
                 getPlayerId = type.GetMethod("GetCurrentPlayerID");
                 getCombatants = type.GetMethod("GetCombatantList");
                 getServerTimestamp = type.GetMethod("GetServerTimestamp");

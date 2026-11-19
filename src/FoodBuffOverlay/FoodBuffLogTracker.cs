@@ -198,13 +198,18 @@ namespace FoodBuffOverlay
 
         public FoodBuffState Resolve(FoodBuffState snapshot, uint currentPlayerId, int warningMinutes)
         {
+            SetPlayerId(currentPlayerId);
+            return ResolveMember(snapshot,currentPlayerId,warningMinutes);
+        }
+
+        public FoodBuffState ResolveMember(FoodBuffState snapshot, uint currentPlayerId, int warningMinutes)
+        {
             if (snapshot == null || snapshot.Condition == FoodBuffCondition.Unavailable || currentPlayerId == 0)
                 return snapshot ?? FoodBuffState.Unavailable();
 
             lock (sync)
             {
-                playerId = currentPlayerId;
-                TrimToLimit();
+                // SetPlayerId pins only the local player; party lookups share this cache.
                 if (snapshot.Condition == FoodBuffCondition.Active || snapshot.Condition == FoodBuffCondition.Expiring)
                     return snapshot;
                 TargetState state;

@@ -19,6 +19,7 @@ namespace FoodBuffOverlay
         private SettingsPersistence settingsPersistence;
         private SettingsControl control;
         private OverlayForm overlay;
+        private PartyForm partyForm;
         private System.Windows.Forms.Timer refreshTimer;
         private System.Windows.Forms.Timer displayTimer;
         private System.Windows.Forms.Timer settingsSaveTimer;
@@ -47,7 +48,8 @@ namespace FoodBuffOverlay
             pluginPage = pluginScreenSpace;
             pluginScreenSpace.Text = Localization.Get(settings.Language, "PluginTab");
             pluginScreenSpace.Controls.Add(control);
-            overlay = new OverlayForm(settings);
+            partyForm = new PartyForm();
+            overlay = new OverlayForm(settings) { Allowed = !settings.DutyOnly };
             overlay.ApplySettings(settings, true);
             ActGlobals.oFormActMain.OnLogLineRead += OnLogLineRead;
             var activeLogPath = ActGlobals.oFormActMain.LogFilePath;
@@ -70,9 +72,10 @@ namespace FoodBuffOverlay
         private void PollStatus(object sender, EventArgs e)
         {
             if (settings == null || Volatile.Read(ref stopping) != 0) return;
-            var snapshot = dataSource.Read(settings.WarningMinutes);
+            var snapshot = dataSource.Read(settings.WarningMinutes,settings.DutyOnly,settings.PartyOverlay);
+            overlay.Allowed = !settings.DutyOnly || dataSource.InDuty;
             var playerId = dataSource.CurrentPlayerId;
-            logTracker.SetPlayerId(playerId);
+
             sampledState = logTracker.Resolve(snapshot, playerId, settings.WarningMinutes);
             RefreshDisplay(null, EventArgs.Empty);
             var error = string.IsNullOrWhiteSpace(dataSource.LastErrorKey)
@@ -86,6 +89,7 @@ namespace FoodBuffOverlay
             if (settings == null || Volatile.Read(ref stopping) != 0) return;
             ApplyPendingUpdate();
             overlay?.SetState(sampledState.At(DateTime.UtcNow, settings.WarningMinutes));
+            partyForm?.RefreshRows(settings, dataSource, logTracker, overlay.Bounds);
         }
 
         private void OnLogLineRead(bool isImport, LogLineEventArgs logInfo)
@@ -126,7 +130,7 @@ namespace FoodBuffOverlay
             backgroundTasks.Dispose();
             SaveSettings(null, EventArgs.Empty);
             updateService.Dispose();
-            overlay?.Close(); overlay?.Dispose(); control?.Dispose();
+            partyForm?.Dispose(); overlay?.Close(); overlay?.Dispose(); control?.Dispose();
             if (status != null) status.Text = lastSaveError ?? Localization.Get(settings == null ? Localization.English : settings.Language, "Stopped");
         }
 

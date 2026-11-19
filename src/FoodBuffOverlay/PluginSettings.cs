@@ -12,6 +12,8 @@ namespace FoodBuffOverlay
         public bool OverlayEnabled { get; set; } = true;
         public bool Locked { get; set; }
         public bool PositionPreview { get; set; }
+        public bool DutyOnly { get; set; }
+        public bool PartyOverlay { get; set; }
         public int WarningMinutes { get; set; } = 12;
         public int OpacityPercent { get; set; } = 94;
         public int Left { get; set; } = 120;

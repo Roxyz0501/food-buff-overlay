@@ -81,6 +81,7 @@ namespace FoodBuffOverlay
             RefreshVisibility();
         }
 
+        public bool Allowed { get; set; } = true;
         public void SetState(FoodBuffState value)
         {
             state = value ?? FoodBuffState.Unavailable();
@@ -90,7 +91,7 @@ namespace FoodBuffOverlay
         private void RefreshVisibility()
         {
             var alert = state.Condition == FoodBuffCondition.Missing || state.Condition == FoodBuffCondition.Expiring;
-            var show = settings.OverlayEnabled && (alert || settings.PositionPreview);
+            var show = Allowed && settings.OverlayEnabled && (alert || settings.PositionPreview);
             if (show) { if (!Visible) Show(); Invalidate(); }
             else if (Visible) Hide();
         }

@@ -29,6 +29,7 @@ internal static class Program
             VerifyBackgroundTaskShutdown();
             VerifySupportLink();
             VerifyLocalizedUi();
+            VerifyParty();
             VerifyRepositoryIsConfigured();
             Console.WriteLine("FoodBuffOverlay tests: PASS");
             return 0;
@@ -289,6 +290,48 @@ internal static class Program
             var supportText = string.Join("\n", Descendants(tabs.TabPages[2]).Select(x => x.Text));
             Assert(supportText.Contains("Roxyz0501") && supportText.Contains(SettingsControl.SupportUrl), "Localized support content is incomplete.");
         }
+    }
+
+    private sealed class SampleMember
+    {
+        public uint ID { get; set; }
+        public byte type => 1;
+        public int PartyType { get; set; }
+        public string Name => "Player" + ID;
+        public object[] NetworkBuffs => new object[0];
+    }
+    private sealed class SampleRepo
+    {
+        public List<SampleMember> Members = new List<SampleMember>();
+        public uint Player() => 1;
+        public List<SampleMember> Combatants() => Members;
+        public uint Zone { get; set; }
+        public uint Territory() => Zone;
+    }
+    private static void VerifyParty()
+    {
+        var repo = new SampleRepo();
+        var source = new FfxivDataSource();
+        Action<string,object> bind = (name,value) => typeof(FfxivDataSource).GetField(name,
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(source,value);
+        bind("repository",repo);
+        bind("getPlayerId",typeof(SampleRepo).GetMethod("Player"));
+        bind("getCombatants",typeof(SampleRepo).GetMethod("Combatants"));
+        bind("territory",typeof(SampleRepo).GetMethod("Territory"));
+        bind("resources",typeof(SampleRepo).GetMethod("Territory"));
+        bind("duties",new Dictionary<uint,string>{{42,"Duty"}});
+        repo.Members.Add(new SampleMember{ID=1});
+        repo.Members.Add(new SampleMember{ID=2,PartyType=2});
+        source.Read(12,false,true);
+        Assert(source.Party.Count==0,"Solo/alliance must be hidden");
+        repo.Members.Add(new SampleMember{ID=3,PartyType=1});
+        source.Read(12,true,true);
+        Assert(!source.InDuty && source.Party.Count==0,"Outside duty");
+        repo.Zone=42;
+        source.Read(12,true,true);
+        Assert(source.InDuty && source.Party.Select(x=>x.Item1).SequenceEqual(new uint[]{1,3}),"Party roster");
+        source.Read(12,true,false);
+        Assert(source.Party.Count==0,"Party disabled");
     }
 
     private static void VerifyRepositoryIsConfigured()
