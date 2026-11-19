@@ -25,6 +25,9 @@ namespace FoodBuffOverlay.Updater
                 if (!string.Equals(Hash(source), expectedHash, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Staged DLL hash mismatch.");
                 WaitForExit(processId);
+                string original;
+                if (values.TryGetValue("--original", out original) && !string.Equals(Hash(target), original, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("Installed DLL changed since update was requested.");
                 ReplaceWithBackup(source, target, expectedHash, version);
                 return 0;
             }

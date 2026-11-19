@@ -231,7 +231,7 @@ namespace FoodBuffOverlay
         }
 
         public void SetUpdatePreparing() { updateNow.Enabled = false; later.Enabled = false; checkNow.Enabled = false; SetUpdateMessage("PreparingUpdate"); }
-        public void SetUpdatePrepared(string stagedDllPath) { updateNow.Visible = false; later.Visible = false; checkNow.Enabled = true; SetUpdateMessage("UpdatePrepared", stagedDllPath); }
+        public void SetUpdatePrepared() { updateNow.Visible = false; later.Visible = false; checkNow.Enabled = false; SetUpdateMessage("UpdatePrepared"); }
         public void SetUpdateError(string error) { updateNow.Enabled = true; later.Enabled = true; checkNow.Enabled = true; SetUpdateMessage("UpdateFailed", error); }
 
         private void LanguageChanged(object sender, EventArgs e)

@@ -97,11 +97,22 @@ namespace FoodBuffOverlay
                 if (!UpdatePackageVerifier.VerifySha256(zipPath, expected)) throw new InvalidDataException("HashFailed");
 
                 var extracted = Path.Combine(root, "extracted");
+                using (var archive = System.IO.Compression.ZipFile.OpenRead(zipPath))
+                {
+                    var names = archive.Entries.Select(entry => entry.FullName).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+                    if (!names.SequenceEqual(new[] { "FoodBuffOverlay.Updater.exe", "FoodBuffOverlay.dll", "README.md" }))
+                        throw new InvalidDataException("InvalidPackage");
+                }
                 UpdatePackageVerifier.ExtractValidated(zipPath, extracted, cancellationToken);
                 var dll = Directory.GetFiles(extracted, UpdateConfiguration.PluginFileName, SearchOption.AllDirectories).SingleOrDefault();
                 if (dll == null) throw new InvalidDataException("InvalidPackage");
                 UpdatePackageVerifier.ValidatePluginAssembly(dll, release.Version);
-                return new PreparedUpdate { StagedDllPath = dll, DllSha256 = UpdatePackageVerifier.ComputeSha256(dll), Release = release };
+                var helper = Path.Combine(extracted, "FoodBuffOverlay.Updater.exe");
+                var identity = AssemblyName.GetAssemblyName(helper);
+                if (identity.Name != "FoodBuffOverlay.Updater" || identity.Version != AssemblyName.GetAssemblyName(dll).Version ||
+                    System.Diagnostics.FileVersionInfo.GetVersionInfo(helper).CompanyName != "Roxyz0501")
+                    throw new InvalidDataException("InvalidPackage");
+                return new PreparedUpdate { StagedDllPath = dll, StagedUpdaterPath = helper, DllSha256 = UpdatePackageVerifier.ComputeSha256(dll), Release = release };
             }
             catch
             {

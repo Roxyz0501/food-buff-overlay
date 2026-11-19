@@ -8,6 +8,9 @@ dotnet build (Join-Path $PSScriptRoot "tests\FoodBuffOverlay.Tests\FoodBuffOverl
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 $pluginDll = Join-Path $PSScriptRoot "src\FoodBuffOverlay\bin\$Configuration\net48\FoodBuffOverlay.dll"
 $version = [Reflection.AssemblyName]::GetAssemblyName($pluginDll).Version.ToString(3)
+$helperProject = Join-Path $PSScriptRoot "src\FoodBuffOverlay.Updater\FoodBuffOverlay.Updater.csproj"
+dotnet build $helperProject -c $Configuration -p:Version=$version --configfile (Join-Path $PSScriptRoot "NuGet.Config")
+if ($LASTEXITCODE -ne 0) { throw "Updater build failed." }
 $dist = Join-Path $PSScriptRoot "dist"
 $stage = Join-Path $dist "package"
 if (Test-Path -LiteralPath $stage) {
@@ -19,6 +22,7 @@ if (Test-Path -LiteralPath $stage) {
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item -LiteralPath $pluginDll -Destination (Join-Path $stage "FoodBuffOverlay.dll") -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "README.md") -Destination (Join-Path $stage "README.md") -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "src\FoodBuffOverlay.Updater\bin\$Configuration\net48\FoodBuffOverlay.Updater.exe") -Destination $stage -Force
 $zipName = "FoodBuffOverlay-v$version.zip"
 $zipPath = Join-Path $dist $zipName
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zipPath -Force

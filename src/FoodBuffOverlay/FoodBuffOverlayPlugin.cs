@@ -218,8 +218,29 @@ namespace FoodBuffOverlay
             }
             else if (pending.PreparedUpdate != null)
             {
-                control.SetUpdatePrepared(pending.PreparedUpdate.StagedDllPath);
-                status.Text = Localization.Get(settings.Language, "UpdatePreparedStatus");
+                try
+                {
+                    string target = null;
+                    foreach (var plugin in ActGlobals.oFormActMain.ActPlugins)
+                        if (ReferenceEquals(plugin.pluginObj,this)) target = plugin.pluginFile?.FullName;
+                    if (!File.Exists(target) || !string.Equals(Path.GetFileName(target),"FoodBuffOverlay.dll",StringComparison.OrdinalIgnoreCase))
+                        throw new IOException("Invalid target");
+                    var update = pending.PreparedUpdate;
+                    using (var act = System.Diagnostics.Process.GetCurrentProcess())
+                    using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                        FileName = update.StagedUpdaterPath,
+                        Arguments = $"--wait-pid {act.Id} --source \"{update.StagedDllPath}\" --target \"{target}\" --sha256 {update.DllSha256} --version {update.Release.Version} --original {UpdatePackageVerifier.ComputeSha256(target)}",
+                        UseShellExecute = false, CreateNoWindow = true
+                    })) { }
+                    control.SetUpdatePrepared();
+                    status.Text = Localization.Get(settings.Language, "UpdatePreparedStatus");
+                }
+                catch (Exception)
+                {
+                    var error = Localization.Get(settings.Language,"UpdateFailureGeneric");
+                    control.SetUpdateError(error);
+                    status.Text = Localization.Get(settings.Language,"UpdateFailed",error);
+                }
             }
             else if (!string.IsNullOrEmpty(pending.Error))
             {
