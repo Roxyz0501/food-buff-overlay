@@ -24,6 +24,7 @@ namespace FoodBuffOverlay
     {
         public UpdateCheckStatus Status { get; set; }
         public ReleaseInfo Release { get; set; }
+        public int HttpStatus { get; set; }
         public string Error { get; set; }
     }
 

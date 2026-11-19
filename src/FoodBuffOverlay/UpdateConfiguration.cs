@@ -11,6 +11,8 @@ namespace FoodBuffOverlay
 
         public static bool IsConfigured => IsSafeSegment(RepositoryOwner) && IsSafeSegment(RepositoryName);
 
+        public const string RepositoryUrl = "https://github.com/" + RepositoryOwner + "/" + RepositoryName;
+
         public static string ReleasesApiUrl => "https://api.github.com/repos/" + RepositoryOwner + "/" + RepositoryName + "/releases?per_page=10";
 
         private static bool IsSafeSegment(string value) => !string.IsNullOrWhiteSpace(value) &&

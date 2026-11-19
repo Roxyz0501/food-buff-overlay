@@ -15,7 +15,7 @@ using System.Windows.Forms;
 internal static class Program
 {
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
@@ -23,6 +23,21 @@ internal static class Program
             VerifyLocalizationFallback();
             VerifySemVersion();
             VerifyReleaseParser();
+            VerifyPublicCheck();
+            if (args.Contains("--live"))
+            {
+                using (var service = new UpdateService())
+                {
+                    var current = typeof(UpdateService).Assembly.GetName().Version;
+                    var result = service.CheckAsync(current, CancellationToken.None).GetAwaiter().GetResult();
+                    Assert(result.Status == UpdateCheckStatus.UpToDate, "Live current version check: " + result.Error + result.HttpStatus);
+                    result = service.CheckAsync(new Version(1, 0, 0), CancellationToken.None).GetAwaiter().GetResult();
+                    Assert(result.Status == UpdateCheckStatus.UpdateAvailable, "Live update not found");
+                    var package = service.DownloadAndVerifyAsync(result.Release, CancellationToken.None).GetAwaiter().GetResult();
+                    Assert(File.Exists(package.StagedDllPath), "Live release did not verify");
+                    Directory.Delete(Directory.GetParent(Path.GetDirectoryName(package.StagedDllPath)).FullName, true);
+                }
+            }
             VerifyHashAndZipSafety();
             VerifyLogReplayBoundsAndTargetRetention();
             VerifySettingsPersistenceLifecycle();
@@ -299,6 +314,47 @@ internal static class Program
         Assert(captured.FileName == "https://ko-fi.com/roxyz0501" && captured.UseShellExecute, "Support URL/default-browser setting is incorrect.");
         result = SettingsControl.TryOpenSupportLink(info => { throw new InvalidOperationException("browser failure"); }, out error);
         Assert(!result && error.Contains("browser failure"), "Browser launch exception was not contained.");
+    }
+
+    private sealed class PublicCheckHandler : HttpMessageHandler
+    {
+        public int ApiCalls;
+        public string Location = UpdateConfiguration.RepositoryUrl + "/releases/tag/v1.5.1";
+        public int Status = 403;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            if (request.Method == HttpMethod.Head && request.RequestUri.AbsoluteUri == UpdateConfiguration.RepositoryUrl + "/releases/latest")
+            {
+                var response = new HttpResponseMessage(System.Net.HttpStatusCode.Found);
+                response.Headers.Location = new Uri(Location);
+                return Task.FromResult(response);
+            }
+            Assert(request.RequestUri.AbsoluteUri == UpdateConfiguration.ReleasesApiUrl, "Unexpected request");
+            ApiCalls++;
+            return Task.FromResult(new HttpResponseMessage((System.Net.HttpStatusCode)Status));
+        }
+    }
+
+    private static void VerifyPublicCheck()
+    {
+        var handler = new PublicCheckHandler();
+        using (var service = new UpdateService(handler))
+        {
+            Func<Version, UpdateCheckResult> check = version => service.CheckAsync(version, CancellationToken.None).GetAwaiter().GetResult();
+            Assert(check(new Version(1, 5, 1)).Status == UpdateCheckStatus.UpToDate && handler.ApiCalls == 0, "Same release used API");
+            foreach (var status in new[] { 403, 429 })
+            {
+                handler.Status = status;
+                var available = check(new Version(1, 4, 0));
+                Assert(available.Status == UpdateCheckStatus.UpdateAvailable && available.Release.Assets.Count == 2 &&
+                    available.Release.Assets.All(a => a.DownloadUrl.StartsWith(UpdateConfiguration.RepositoryUrl + "/releases/download/v1.5.1/")), "Rate limit fallback");
+            }
+            foreach (var location in new[] { "https://github.com/other/project/releases/tag/v9.0.0", UpdateConfiguration.RepositoryUrl + "/releases/tag/v9.0.0-rc1" })
+            {
+                handler.Location = location;
+                Assert(check(new Version(1, 0)).HttpStatus == 429, "Untrusted fallback accepted");
+            }
+        }
     }
 
     private static void VerifyLocalizedUi()

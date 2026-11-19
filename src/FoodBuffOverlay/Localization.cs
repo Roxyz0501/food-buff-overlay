@@ -43,6 +43,7 @@ namespace FoodBuffOverlay
                     ["Started"]="Food Buff Overlay: Started", ["Stopped"]="Food Buff Overlay: Stopped", ["SaveError"]="Food Buff Overlay: Could not save settings — {0}",
                     ["FfxivPluginMissing"]="FFXIV ACT Plugin is not enabled.", ["RepositoryNotReady"]="Waiting for the FFXIV data repository.", ["DataApiMissing"]="The FFXIV combatant data API is unavailable.",
                     ["UpdateAssetMissing"]="The required release asset or SHA-256 manifest is missing.", ["RestartAct"]="Exit and restart ACT to complete the update.",
+                    ["ApiLimited"]="GitHub restricted the request (HTTP {0}). Try again later.", ["ReleaseDetails"]="See the GitHub release page for details.",
                     ["NetworkFailure"]="Could not contact GitHub. The plugin will continue normally.", ["InvalidPackage"]="The downloaded update package is invalid.",
                     ["HashFailed"]="SHA-256 verification failed.",
                     ["UpdateFailureGeneric"]="The update could not be prepared safely.", ["DataReadFailed"]="Could not read FFXIV data.", ["BrowserFailure"]="The default browser could not be started."
@@ -76,6 +77,7 @@ namespace FoodBuffOverlay
                     ["Started"]="Food Buff Overlay: 起動済み", ["Stopped"]="Food Buff Overlay: 停止", ["SaveError"]="Food Buff Overlay: 設定保存エラー — {0}",
                     ["FfxivPluginMissing"]="FFXIV ACT Pluginが有効ではありません。", ["RepositoryNotReady"]="FFXIVデータの準備待ちです。", ["DataApiMissing"]="FFXIVの戦闘者データAPIが見つかりません。",
                     ["UpdateAssetMissing"]="必要なRelease assetまたはSHA-256マニフェストがありません。", ["RestartAct"]="更新を完了するにはACTを終了して再起動してください。",
+                    ["ApiLimited"]="GitHub がリクエストを制限しました（HTTP {0}）。時間をおいて再確認してください。", ["ReleaseDetails"]="更新内容は GitHub のリリースページで確認できます。",
                     ["NetworkFailure"]="GitHubへ接続できませんでした。プラグインの通常機能は継続します。", ["InvalidPackage"]="ダウンロードした更新パッケージが不正です。",
                     ["HashFailed"]="SHA-256検証に失敗しました。",
                     ["UpdateFailureGeneric"]="更新を安全に準備できませんでした。", ["DataReadFailed"]="FFXIVデータを読み取れませんでした。", ["BrowserFailure"]="既定ブラウザを起動できませんでした。"
@@ -103,6 +105,7 @@ namespace FoodBuffOverlay
                     ["Started"]="Food Buff Overlay: 已启动", ["Stopped"]="Food Buff Overlay: 已停止", ["SaveError"]="Food Buff Overlay: 保存设置失败 — {0}",
                     ["FfxivPluginMissing"]="未启用FFXIV ACT Plugin。", ["RepositoryNotReady"]="正在等待FFXIV数据。", ["DataApiMissing"]="无法使用FFXIV战斗对象数据API。",
                     ["UpdateAssetMissing"]="缺少所需的Release asset或SHA-256清单。", ["RestartAct"]="请退出并重新启动ACT以完成更新。",
+                    ["ApiLimited"]="GitHub 限制了请求（HTTP {0}）。请稍后重试。", ["ReleaseDetails"]="请在 GitHub 发布页面查看更新内容。",
                     ["NetworkFailure"]="无法连接GitHub。插件的正常功能将继续运行。", ["InvalidPackage"]="下载的更新包无效。", ["HashFailed"]="SHA-256验证失败。",
                     ["UpdateFailureGeneric"]="无法安全地准备更新。", ["DataReadFailed"]="无法读取FFXIV数据。", ["BrowserFailure"]="无法启动默认浏览器。"
                 },
@@ -129,6 +132,7 @@ namespace FoodBuffOverlay
                     ["Started"]="Food Buff Overlay: 시작됨", ["Stopped"]="Food Buff Overlay: 중지됨", ["SaveError"]="Food Buff Overlay: 설정 저장 실패 — {0}",
                     ["FfxivPluginMissing"]="FFXIV ACT Plugin이 활성화되지 않았습니다.", ["RepositoryNotReady"]="FFXIV 데이터를 기다리는 중입니다.", ["DataApiMissing"]="FFXIV 전투 대상 데이터 API를 사용할 수 없습니다.",
                     ["UpdateAssetMissing"]="필요한 Release asset 또는 SHA-256 매니페스트가 없습니다.", ["RestartAct"]="업데이트 완료를 위해 ACT를 종료하고 다시 시작하세요.",
+                    ["ApiLimited"]="GitHub 요청이 제한되었습니다(HTTP {0}). 잠시 후 다시 시도하세요.", ["ReleaseDetails"]="업데이트 내용은 GitHub 릴리스 페이지에서 확인하세요.",
                     ["NetworkFailure"]="GitHub에 연결할 수 없습니다. 플러그인의 일반 기능은 계속 작동합니다.", ["InvalidPackage"]="다운로드한 업데이트 패키지가 올바르지 않습니다.",
                     ["HashFailed"]="SHA-256 검증에 실패했습니다.",
                     ["UpdateFailureGeneric"]="업데이트를 안전하게 준비할 수 없습니다.", ["DataReadFailed"]="FFXIV 데이터를 읽을 수 없습니다.", ["BrowserFailure"]="기본 브라우저를 시작할 수 없습니다."

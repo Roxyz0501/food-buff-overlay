@@ -227,13 +227,13 @@ namespace FoodBuffOverlay
                 case UpdateCheckStatus.RepositoryNotConfigured: SetUpdateMessage("RepositoryNotConfigured"); break;
                 case UpdateCheckStatus.NoStableRelease: SetUpdateMessage("NoStableRelease"); break;
                 case UpdateCheckStatus.UpToDate: SetUpdateMessage("UpToDate", currentVersion.ToString(3)); break;
-                case UpdateCheckStatus.Failed: SetUpdateMessage("CheckFailed", T("NetworkFailure")); break;
+                case UpdateCheckStatus.Failed: SetUpdateMessage("CheckFailed", result.HttpStatus == 403 || result.HttpStatus == 429 ? T("ApiLimited", result.HttpStatus) : result.HttpStatus > 0 ? "HTTP " + result.HttpStatus : T("NetworkFailure")); break;
                 case UpdateCheckStatus.UpdateAvailable:
                     if (result.Release != null && string.Equals(skippedVersion, result.Release.Version.ToString(), StringComparison.OrdinalIgnoreCase))
                     {
                         SetUpdateMessage("UpdateSkipped", result.Release.Version); break;
                     }
-                    SetUpdateMessage("UpdateAvailable", currentVersion.ToString(3), result.Release.Version, result.Release.Notes);
+                    SetUpdateMessage("UpdateAvailable", currentVersion.ToString(3), result.Release.Version, result.Release.Notes ?? T("ReleaseDetails"));
                     updateNow.Visible = true; later.Visible = true; break;
             }
         }
