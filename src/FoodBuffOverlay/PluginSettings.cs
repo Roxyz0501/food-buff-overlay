@@ -16,6 +16,13 @@ namespace FoodBuffOverlay
         public bool PartyOverlay { get; set; }
         public bool PartyLocked { get; set; }
         public bool PartyPreview { get; set; }
+        private bool? partyDutyOnly;
+        private int? partyWarningMinutes;
+        public bool PartyDutyOnly { get => partyDutyOnly ?? DutyOnly; set => partyDutyOnly = value; }
+        public int PartyWarningMinutes { get => partyWarningMinutes ?? WarningMinutes; set => partyWarningMinutes = value; }
+        public int PartyOpacityPercent { get; set; } = 96;
+        public int PartyWidth { get; set; } = 300;
+        public int PartyRowHeight { get; set; } = 32;
         public int PartyLeft { get; set; } = 120;
         public int PartyTop { get; set; } = 240;
         public int WarningMinutes { get; set; } = 12;
@@ -32,6 +39,11 @@ namespace FoodBuffOverlay
         {
             WarningMinutes = Math.Max(1, Math.Min(60, WarningMinutes));
             OpacityPercent = Math.Max(35, Math.Min(100, OpacityPercent));
+            PartyDutyOnly = PartyDutyOnly;
+            PartyWarningMinutes = Math.Max(1, Math.Min(60, PartyWarningMinutes));
+            PartyOpacityPercent = Math.Max(35, Math.Min(100, PartyOpacityPercent));
+            PartyWidth = Math.Max(180, Math.Min(620, PartyWidth));
+            PartyRowHeight = Math.Max(24, Math.Min(90, PartyRowHeight));
             Width = Math.Max(180, Math.Min(620, Width));
             Height = Math.Max(48, Math.Min(180, Height));
             if (!string.IsNullOrWhiteSpace(Language)) Language = Localization.NormalizeLanguage(Language);

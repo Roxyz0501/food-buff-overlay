@@ -24,7 +24,7 @@ namespace FoodBuffOverlay
         public bool InDuty { get; private set; }
         public readonly List<Tuple<uint,string,FoodBuffState>> Party = new List<Tuple<uint,string,FoodBuffState>>();
 
-        public FoodBuffState Read(int warningMinutes, bool checkDuty, bool checkParty)
+        public FoodBuffState Read(int warningMinutes, bool checkDuty, bool checkParty, bool partyDutyOnly)
         {
             Party.Clear(); InDuty = false;
             if (repository == null && !TryConnect()) return FoodBuffState.Unavailable();
@@ -35,7 +35,7 @@ namespace FoodBuffOverlay
                 var combatants = getCombatants.Invoke(repository, null) as IEnumerable;
                 if (playerId == 0 || combatants == null) return FoodBuffState.Unavailable();
 
-                if (checkDuty && resources != null && territory != null)
+                if ((checkDuty || (checkParty && partyDutyOnly)) && resources != null && territory != null)
                 {
                     if (duties == null)
                     {
@@ -44,7 +44,7 @@ namespace FoodBuffOverlay
                     }
                     InDuty = duties != null && duties.ContainsKey(Convert.ToUInt32(territory.Invoke(repository, null)));
                 }
-                checkParty &= !checkDuty || InDuty;
+                checkParty &= !partyDutyOnly || InDuty;
                 object player = null;
                 foreach (var combatant in combatants)
                 {

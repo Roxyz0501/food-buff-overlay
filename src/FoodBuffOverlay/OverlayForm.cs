@@ -91,7 +91,7 @@ namespace FoodBuffOverlay
         private void RefreshVisibility()
         {
             var alert = state.Condition == FoodBuffCondition.Missing || state.Condition == FoodBuffCondition.Expiring;
-            var show = Allowed && settings.OverlayEnabled && (alert || settings.PositionPreview);
+            var show = settings.PositionPreview || (Allowed && settings.OverlayEnabled && alert);
             if (show) { if (!Visible) Show(); Invalidate(); }
             else if (Visible) Hide();
         }
@@ -143,16 +143,8 @@ namespace FoodBuffOverlay
             {
                 var raw = message.LParam.ToInt64();
                 var point = PointToClient(new Point(unchecked((short)(raw & 0xffff)), unchecked((short)((raw >> 16) & 0xffff))));
-                var left = point.X <= ResizeBorder; var right = point.X >= ClientSize.Width - ResizeBorder;
-                var top = point.Y <= ResizeBorder; var bottom = point.Y >= ClientSize.Height - ResizeBorder;
-                if (left && top) { message.Result = new IntPtr(HTTOPLEFT); return; }
-                if (right && top) { message.Result = new IntPtr(HTTOPRIGHT); return; }
-                if (left && bottom) { message.Result = new IntPtr(HTBOTTOMLEFT); return; }
-                if (right && bottom) { message.Result = new IntPtr(HTBOTTOMRIGHT); return; }
-                if (left) { message.Result = new IntPtr(HTLEFT); return; }
-                if (right) { message.Result = new IntPtr(HTRIGHT); return; }
-                if (top) { message.Result = new IntPtr(HTTOP); return; }
-                if (bottom) { message.Result = new IntPtr(HTBOTTOM); return; }
+                int hit = ResizeHit(point, ClientSize);
+                if (hit != 0) { message.Result = new IntPtr(hit); return; }
             }
             base.WndProc(ref message);
         }
@@ -162,16 +154,7 @@ namespace FoodBuffOverlay
             base.OnPaint(e);
             var preview = settings.PositionPreview && state.Condition != FoodBuffCondition.Missing && state.Condition != FoodBuffCondition.Expiring;
             var missing = !preview && state.Condition == FoodBuffCondition.Missing;
-            var accent = missing ? Color.FromArgb(255, 79, 88) : Color.FromArgb(255, 184, 72);
-            var darkAccent = missing ? Color.FromArgb(112, 25, 34) : Color.FromArgb(111, 70, 14);
-            var rect = new Rectangle(0, 0, Width - 1, Height - 1);
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var background = new LinearGradientBrush(rect, Color.FromArgb(246, 24, 18, 22), Color.FromArgb(244, 57, 28, 23), LinearGradientMode.Horizontal))
-            using (var path = RoundedPath(rect, 12)) e.Graphics.FillPath(background, path);
-            using (var glow = new LinearGradientBrush(new Rectangle(0, 0, Math.Max(1, Width / 3), Height), Color.FromArgb(205, darkAccent), Color.FromArgb(0, darkAccent), LinearGradientMode.Horizontal))
-            using (var path = RoundedPath(rect, 12)) e.Graphics.FillPath(glow, path);
-            using (var bar = new SolidBrush(accent)) e.Graphics.FillRectangle(bar, 0, 9, 5, Height - 18);
-
+            PaintFrame(e.Graphics, ClientSize, missing, settings.Locked);
             var main = preview ? Localization.Get(settings.Language, "OverlayPreview") : missing
                 ? Localization.Get(settings.Language, "OverlayMissing")
                 : Localization.Get(settings.Language, "OverlayRemaining", FormatRemaining(state.Remaining));
@@ -189,14 +172,43 @@ namespace FoodBuffOverlay
                 e.Graphics.DrawString(main, mainFont, mainBrush, new RectangleF(17, y, Width - 28, mainFont.Height + 3));
                 e.Graphics.DrawString(detail, detailFont, detailBrush, new RectangleF(19, y + mainFont.Height + 1, Width - 30, detailFont.Height + 2));
             }
+        }
+
+        internal static int ResizeHit(Point point, Size size)
+        {
+            var left = point.X <= ResizeBorder; var right = point.X >= size.Width - ResizeBorder;
+            var top = point.Y <= ResizeBorder; var bottom = point.Y >= size.Height - ResizeBorder;
+            if (left && top) return HTTOPLEFT;
+            if (right && top) return HTTOPRIGHT;
+            if (left && bottom) return HTBOTTOMLEFT;
+            if (right && bottom) return HTBOTTOMRIGHT;
+            if (left) return HTLEFT;
+            if (right) return HTRIGHT;
+            if (top) return HTTOP;
+            if (bottom) return HTBOTTOM;
+            return 0;
+        }
+
+        internal static void PaintFrame(Graphics graphics, Size size, bool missing, bool locked)
+        {
+            var accent = missing ? Color.FromArgb(255, 79, 88) : Color.FromArgb(255, 184, 72);
+            var darkAccent = missing ? Color.FromArgb(112, 25, 34) : Color.FromArgb(111, 70, 14);
+            var rect = new Rectangle(0, 0, size.Width - 1, size.Height - 1);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var background = new LinearGradientBrush(rect, Color.FromArgb(246, 24, 18, 22), Color.FromArgb(244, 57, 28, 23), LinearGradientMode.Horizontal))
+            using (var path = OverlayForm.RoundedPath(rect, 12)) graphics.FillPath(background, path);
+            using (var glow = new LinearGradientBrush(new Rectangle(0, 0, Math.Max(1, size.Width / 3), size.Height), Color.FromArgb(205, darkAccent), Color.FromArgb(0, darkAccent), LinearGradientMode.Horizontal))
+            using (var path = OverlayForm.RoundedPath(rect, 12)) graphics.FillPath(glow, path);
+            using (var bar = new SolidBrush(accent)) graphics.FillRectangle(bar, 0, 9, 5, size.Height - 18);
+
             using (var border = new Pen(Color.FromArgb(210, accent), 1.5f))
-            using (var path = RoundedPath(rect, 12)) e.Graphics.DrawPath(border, path);
-            if (!settings.Locked)
+            using (var path = OverlayForm.RoundedPath(rect, 12)) graphics.DrawPath(border, path);
+            if (!locked)
             {
                 using (var pen = new Pen(Color.FromArgb(180, 255, 226, 174), 1f))
                 {
-                    e.Graphics.DrawLine(pen, Width - 17, Height - 6, Width - 6, Height - 17);
-                    e.Graphics.DrawLine(pen, Width - 11, Height - 6, Width - 6, Height - 11);
+                    graphics.DrawLine(pen, size.Width - 17, size.Height - 6, size.Width - 6, size.Height - 17);
+                    graphics.DrawLine(pen, size.Width - 11, size.Height - 6, size.Width - 6, size.Height - 11);
                 }
             }
         }

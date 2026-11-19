@@ -72,7 +72,7 @@ namespace FoodBuffOverlay
         private void PollStatus(object sender, EventArgs e)
         {
             if (settings == null || Volatile.Read(ref stopping) != 0) return;
-            var snapshot = dataSource.Read(settings.WarningMinutes,settings.DutyOnly,settings.PartyOverlay);
+            var snapshot = dataSource.Read(settings.WarningMinutes, settings.DutyOnly, settings.PartyOverlay, settings.PartyDutyOnly);
             overlay.Allowed = !settings.DutyOnly || dataSource.InDuty;
             var playerId = dataSource.CurrentPlayerId;
 

@@ -16,6 +16,11 @@ namespace FoodBuffOverlay
         private readonly CheckBox locked = Check();
         private readonly CheckBox preview = Check();
         private readonly CheckBox duty = Check(), party = Check();
+        private readonly CheckBox partyDuty = Check();
+        private readonly Label personalTitle = NewLabel(), partyTitle = NewLabel();
+        private readonly Label partyWarning = NewLabel(), partySuffix = NewLabel(), partyOpacityLabel = NewLabel(), partyOpacityValue = NewLabel();
+        private readonly NumericUpDown partyMinutes = new NumericUpDown { Minimum = 1, Maximum = 60, Width = 74 };
+        private readonly TrackBar partyOpacity = new TrackBar { Minimum = 35, Maximum = 100, TickFrequency = 5, Width = 220 };
         private readonly CheckBox checkStartup = Check();
         private readonly NumericUpDown minutes = new NumericUpDown { Minimum = 1, Maximum = 60, Width = 74 };
         private readonly TrackBar opacity = new TrackBar { Minimum = 35, Maximum = 100, TickFrequency = 5, Width = 220 };
@@ -69,10 +74,14 @@ namespace FoodBuffOverlay
             duty.Checked = settings.DutyOnly; party.Checked = settings.PartyOverlay;
             partyLocked.Checked = settings.PartyLocked;
             partyPreview.Checked = settings.PartyPreview;
+            partyDuty.Checked = settings.PartyDutyOnly;
+            partyMinutes.Value = settings.PartyWarningMinutes;
+            partyOpacity.Value = settings.PartyOpacityPercent;
             checkStartup.Checked = settings.CheckUpdatesOnStartup;
             minutes.Value = settings.WarningMinutes;
             opacity.Value = settings.OpacityPercent;
             opacityValue.Text = opacity.Value + "%";
+            partyOpacityValue.Text = partyOpacity.Value + "%";
             language.Items.AddRange(new object[]
             {
                 new LanguageItem("English", Localization.English),
@@ -109,6 +118,9 @@ namespace FoodBuffOverlay
             duty.CheckedChanged += Changed; party.CheckedChanged += Changed;
             partyLocked.CheckedChanged += Changed;
             partyPreview.CheckedChanged += Changed;
+            partyDuty.CheckedChanged += Changed;
+            partyMinutes.ValueChanged += Changed;
+            partyOpacity.ValueChanged += Changed;
             checkStartup.CheckedChanged += Changed;
             minutes.ValueChanged += Changed;
             opacity.ValueChanged += Changed;
@@ -137,23 +149,32 @@ namespace FoodBuffOverlay
         private Control BuildSettingsPanel()
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(20), AutoScroll = true };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 9 };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 17 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            AddWide(layout, enabled, 0); AddWide(layout, locked, 1); AddWide(layout, preview, 2);
-            layout.Controls.Add(warningLabel, 0, 3);
-            var minutePanel = Flow(); minutePanel.Controls.Add(minutes); minutePanel.Controls.Add(minuteSuffix); layout.Controls.Add(minutePanel, 1, 3);
-            layout.Controls.Add(opacityLabel, 0, 4);
-            var opacityPanel = Flow(); opacityPanel.Controls.Add(opacity); opacityValue.Margin = new Padding(5, 10, 0, 0); opacityPanel.Controls.Add(opacityValue); layout.Controls.Add(opacityPanel, 1, 4);
-            layout.Controls.Add(languageLabel, 0, 5);
-            var languagePanel = Flow(); languagePanel.Controls.Add(language); languageHint.Margin = new Padding(8, 6, 0, 0); languagePanel.Controls.Add(languageHint); layout.Controls.Add(languagePanel, 1, 5);
-            hint.ForeColor = Color.FromArgb(80, 80, 88); hint.Padding = new Padding(0, 9, 0, 4); AddWide(layout, hint, 6);
-            connection.ForeColor = Color.FromArgb(42, 109, 158); connection.AutoSize = false; connection.Height = 30; AddWide(layout, connection, 7);
-            AddWide(layout, duty, 8); AddWide(layout, party, 9);
-            AddWide(layout, partyLocked, 10); AddWide(layout, partyPreview, 11);
-            for (var i = 0; i < 3; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            AddWide(layout, personalTitle, 0);
+            AddWide(layout, enabled, 1); AddWide(layout, locked, 2); AddWide(layout, preview, 3); AddWide(layout, duty, 4);
+            AddSettingRow(layout, warningLabel, minutes, minuteSuffix, 5);
+            AddSettingRow(layout, opacityLabel, opacity, opacityValue, 6);
+            partyTitle.Margin = new Padding(3, 16, 3, 3);
+            AddWide(layout, partyTitle, 7);
+            AddWide(layout, party, 8); AddWide(layout, partyLocked, 9); AddWide(layout, partyPreview, 10); AddWide(layout, partyDuty, 11);
+            AddSettingRow(layout, partyWarning, partyMinutes, partySuffix, 12);
+            AddSettingRow(layout, partyOpacityLabel, partyOpacity, partyOpacityValue, 13);
+            AddSettingRow(layout, languageLabel, language, languageHint, 14);
+            hint.ForeColor = Color.FromArgb(80, 80, 88); AddWide(layout, hint, 15);
+            connection.ForeColor = Color.FromArgb(42, 109, 158); AddWide(layout, connection, 16);
             panel.Controls.Add(layout);
             return panel;
+        }
+
+        private static void AddSettingRow(TableLayoutPanel layout, Label label, Control input, Label detail, int row)
+        {
+            var flow = Flow();
+            flow.Controls.Add(input);
+            flow.Controls.Add(detail);
+            layout.Controls.Add(label, 0, row);
+            layout.Controls.Add(flow, 1, row);
         }
 
         private Control BuildUpdatePanel()
@@ -199,6 +220,9 @@ namespace FoodBuffOverlay
             value.DutyOnly = duty.Checked; value.PartyOverlay = party.Checked;
             value.PartyLocked = partyLocked.Checked;
             value.PartyPreview = partyPreview.Checked;
+            value.PartyDutyOnly = partyDuty.Checked;
+            value.PartyWarningMinutes = (int)partyMinutes.Value;
+            value.PartyOpacityPercent = partyOpacity.Value;
             value.OverlayEnabled = enabled.Checked; value.Locked = locked.Checked; value.PositionPreview = preview.Checked;
             value.WarningMinutes = (int)minutes.Value; value.OpacityPercent = opacity.Value;
             value.Language = SelectedLanguage; value.CheckUpdatesOnStartup = checkStartup.Checked; value.Normalize();
@@ -252,6 +276,7 @@ namespace FoodBuffOverlay
         private void Changed(object sender, EventArgs e)
         {
             opacityValue.Text = opacity.Value + "%";
+            partyOpacityValue.Text = partyOpacity.Value + "%";
             if (!loading) SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -262,6 +287,10 @@ namespace FoodBuffOverlay
             headerTitle.Text = T("PluginTab"); headerSubtitle.Text = T("HeaderSubtitle");
             headerTitle.Font = new Font(family, 17f, FontStyle.Bold); headerSubtitle.Font = new Font(family, 8.5f);
             tabs.SetLanguageFont(family); settingsTab.Text = T("TabSettings"); updateTab.Text = T("TabUpdate"); supportTab.Text = T("TabSupport");
+            personalTitle.Text = T("PersonalTitle"); partyTitle.Text = T("PartyTitle");
+            personalTitle.Font = new Font(family, 11f, FontStyle.Bold); partyTitle.Font = personalTitle.Font;
+            partyWarning.Text = T("WarningThreshold"); partySuffix.Text = T("MinutesSuffix");
+            partyOpacityLabel.Text = T("Opacity"); partyDuty.Text = T("Duty");
             duty.Text = T("Duty"); party.Text = T("Party");
             partyLocked.Text = T("PartyLocked"); partyPreview.Text = T("PartyPreview");
             enabled.Text = T("Enabled"); locked.Text = T("Locked"); preview.Text = T("Preview");

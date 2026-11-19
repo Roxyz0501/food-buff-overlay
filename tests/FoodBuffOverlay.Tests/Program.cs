@@ -58,7 +58,7 @@ internal static class Program
                 placement.PartyPreview = true;
                 partyWindow.RefreshRows(source, tracker);
                 var handle = partyWindow.Handle;
-                Assert(partyWindow.Visible && partyWindow.Opacity > 0 && partyWindow.Controls[0].Text.Contains("11:59"), "Party preview in solo/outside duty");
+                Assert(partyWindow.Visible && partyWindow.Opacity > 0 && partyWindow.AccessibleDescription.Contains("11:59"), "Party preview in solo/outside duty");
                 placement.PartyLocked = true;
                 partyWindow.RefreshRows(source, tracker);
                 Assert(handle == partyWindow.Handle, "Locking must preserve the party window");
@@ -67,7 +67,13 @@ internal static class Program
                 placement.DutyOnly = false;
                 source.Party.Add(Tuple.Create(3u, "Test Member", FoodBuffState.Missing()));
                 partyWindow.RefreshRows(source, tracker);
-                Assert(partyWindow.Visible && partyWindow.Controls[0].Text.Contains("Test Member"), "Live party list");
+                Assert(partyWindow.Visible && partyWindow.AccessibleDescription.Contains("Test Member"), "Live party list");
+                using (var image = new System.Drawing.Bitmap(partyWindow.Width, partyWindow.Height))
+                {
+                    partyWindow.DrawToBitmap(image, partyWindow.ClientRectangle);
+                    var accent = image.GetPixel(2, image.Height / 2);
+                    Assert(accent.R > 200 && accent.G < 140, "Missing food uses personal overlay red accent");
+                }
                 placement.Left += 80;
                 partyWindow.RefreshRows(new FfxivDataSource(), new FoodBuffLogTracker());
                 Assert(partyWindow.Left == placement.PartyLeft && partyWindow.Top == placement.PartyTop, "Party position must be independent");
@@ -234,8 +240,16 @@ internal static class Program
         try
         {
             var path = Path.Combine(root, "old.xml");
-            File.WriteAllText(path, "<?xml version=\"1.0\"?><PluginSettings><OverlayEnabled>true</OverlayEnabled><WarningMinutes>12</WarningMinutes></PluginSettings>", Encoding.UTF8);
+            File.WriteAllText(path, "<?xml version=\"1.0\"?><PluginSettings><OverlayEnabled>true</OverlayEnabled><DutyOnly>true</DutyOnly><WarningMinutes>23</WarningMinutes></PluginSettings>", Encoding.UTF8);
             var loaded = PluginSettings.Load(path);
+            Assert(loaded.PartyDutyOnly && loaded.PartyWarningMinutes == 23, "Migrate former shared settings");
+            loaded.DutyOnly = false;
+            loaded.WarningMinutes = 4;
+            loaded.PartyOpacityPercent = 63;
+            loaded.Save(path);
+            loaded = PluginSettings.Load(path);
+            Assert(!loaded.DutyOnly && loaded.PartyDutyOnly && loaded.WarningMinutes == 4 && loaded.PartyWarningMinutes == 23 &&
+                loaded.PartyOpacityPercent == 63 && loaded.OpacityPercent == 94, "Independent overlay settings round trip");
             Assert(loaded.Language == null, "Old config must remain distinguishable as first-run language.");
             Assert(loaded.CheckUpdatesOnStartup, "New update setting must have a safe default.");
         }
@@ -407,15 +421,19 @@ internal static class Program
         bind("duties",new Dictionary<uint,string>{{42,"Duty"}});
         repo.Members.Add(new SampleMember{ID=1});
         repo.Members.Add(new SampleMember{ID=2,PartyType=2});
-        source.Read(12,false,true);
+        source.Read(12,false,true,false);
         Assert(source.Party.Count==0,"Solo/alliance must be hidden");
         repo.Members.Add(new SampleMember{ID=3,PartyType=1});
-        source.Read(12,true,true);
+        source.Read(12,true,true,true);
         Assert(!source.InDuty && source.Party.Count==0,"Outside duty");
+        source.Read(12,true,true,false);
+        Assert(!source.InDuty && source.Party.Count == 2, "Personal duty filter must not hide the party");
+        source.Read(12,false,true,true);
+        Assert(!source.InDuty && source.Party.Count == 0, "Independent party duty filter");
         repo.Zone=42;
-        source.Read(12,true,true);
+        source.Read(12,true,true,true);
         Assert(source.InDuty && source.Party.Select(x=>x.Item1).SequenceEqual(new uint[]{1,3}),"Party roster");
-        source.Read(12,true,false);
+        source.Read(12,true,false,false);
         Assert(source.Party.Count==0,"Party disabled");
     }
 
