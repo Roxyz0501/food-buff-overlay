@@ -108,8 +108,8 @@ namespace FoodBuffOverlay
         {
             var opacity = settings.PartyOpacityPercent / 100d;
             if (Opacity != opacity) Opacity = opacity;
-            bool changed = locked != settings.PartyLocked || language != settings.Language;
-            language = settings.Language;
+            bool changed = locked != settings.PartyLocked || language != settings.DisplayLanguage;
+            language = settings.DisplayLanguage;
             if (locked != settings.PartyLocked)
             {
                 locked = settings.PartyLocked;

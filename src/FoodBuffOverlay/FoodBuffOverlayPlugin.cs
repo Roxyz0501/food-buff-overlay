@@ -46,7 +46,7 @@ namespace FoodBuffOverlay
             control.InstallUpdateRequested += OnInstallUpdateRequested;
             control.SkipUpdateRequested += OnSkipUpdateRequested;
             pluginPage = pluginScreenSpace;
-            pluginScreenSpace.Text = Localization.Get(settings.Language, "PluginTab");
+            pluginScreenSpace.Text = Localization.Get(settings.DisplayLanguage, "PluginTab");
             pluginScreenSpace.Controls.Add(control);
             partyForm = new PartyForm(settings);
             overlay = new OverlayForm(settings) { Allowed = !settings.DutyOnly };
@@ -64,7 +64,7 @@ namespace FoodBuffOverlay
             settingsSaveTimer.Start();
             PollStatus(null, EventArgs.Empty);
             backgroundTasks.TryStart(token => logTracker.ReplayCurrentLogAsync(activeLogPath, token));
-            status.Text = Localization.Get(settings.Language, "Started");
+            status.Text = Localization.Get(settings.DisplayLanguage, "Started");
             if (settings.CheckUpdatesOnStartup)
                 CheckForUpdates(false);
         }
@@ -78,9 +78,13 @@ namespace FoodBuffOverlay
 
             sampledState = logTracker.Resolve(snapshot, playerId, settings.WarningMinutes);
             RefreshDisplay(null, EventArgs.Empty);
+        }
+
+        private void RefreshConnection()
+        {
             var error = string.IsNullOrWhiteSpace(dataSource.LastErrorKey)
-                ? (string.IsNullOrWhiteSpace(dataSource.LastError) ? null : Localization.Get(settings.Language, "DataReadFailed"))
-                : Localization.Get(settings.Language, dataSource.LastErrorKey);
+                ? (string.IsNullOrWhiteSpace(dataSource.LastError) ? null : Localization.Get(settings.DisplayLanguage, "DataReadFailed"))
+                : Localization.Get(settings.DisplayLanguage, dataSource.LastErrorKey);
             control?.SetConnection(sampledState, error);
         }
 
@@ -101,14 +105,40 @@ namespace FoodBuffOverlay
             // The existing UI timers sample status. Avoid queuing a callback that could run after deinitialization.
         }
 
+        public void SetHostedLanguage(string code)
+        {
+            if (settings == null || control == null || Volatile.Read(ref stopping) != 0) return;
+            var language = string.IsNullOrWhiteSpace(code) ? null : Localization.NormalizeLanguage(code);
+            if (language == settings.HostedLanguage) return;
+            settings.HostedLanguage = language;
+            control.SyncHostedLanguage();
+            pluginPage.Text = Localization.Get(settings.DisplayLanguage, "PluginTab");
+            RefreshStatusLanguage();
+            RefreshDisplay(null, EventArgs.Empty);
+            RefreshConnection();
+        }
+
         private void OnSettingsChanged(object sender, EventArgs e)
         {
             if (Volatile.Read(ref stopping) != 0) return;
             control.ApplyTo(settings);
             overlay.ApplySettings(settings);
-            if (pluginPage != null) pluginPage.Text = Localization.Get(settings.Language, "PluginTab");
-            if (status != null) status.Text = Localization.Get(settings.Language, "Started");
+            if (pluginPage != null) pluginPage.Text = Localization.Get(settings.DisplayLanguage, "PluginTab");
+            RefreshStatusLanguage();
             PollStatus(null, EventArgs.Empty);
+        }
+
+        private Func<string> statusMessage;
+
+        private void SetStatus(Func<string> message)
+        {
+            statusMessage = message;
+            RefreshStatusLanguage();
+        }
+
+        private void RefreshStatusLanguage()
+        {
+            if (status != null) status.Text = statusMessage == null ? Localization.Get(settings.DisplayLanguage, "Started") : statusMessage();
         }
 
         public void DeInitPlugin()
@@ -131,7 +161,7 @@ namespace FoodBuffOverlay
             SaveSettings(null, EventArgs.Empty);
             updateService.Dispose();
             partyForm?.Dispose(); overlay?.Close(); overlay?.Dispose(); control?.Dispose();
-            if (status != null) status.Text = lastSaveError ?? Localization.Get(settings == null ? Localization.English : settings.Language, "Stopped");
+            if (status != null) status.Text = lastSaveError ?? Localization.Get(settings == null ? Localization.English : settings.DisplayLanguage, "Stopped");
         }
 
         private void SaveSettings(object sender, EventArgs e)
@@ -144,7 +174,7 @@ namespace FoodBuffOverlay
             }
             catch (Exception ex)
             {
-                lastSaveError = Localization.Get(settings.Language, "SaveError", ex.GetBaseException().Message);
+                lastSaveError = Localization.Get(settings.DisplayLanguage, "SaveError", ex.GetBaseException().Message);
                 if (status != null) status.Text = lastSaveError;
             }
         }
@@ -208,12 +238,12 @@ namespace FoodBuffOverlay
                 if (pending.CheckResult.Status == UpdateCheckStatus.UpdateAvailable && pending.CheckResult.Release != null &&
                     !string.Equals(settings.SkippedVersion, pending.CheckResult.Release.Version.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
-                    status.Text = Localization.Get(settings.Language, "UpdateAvailable", pending.CurrentVersion.ToString(3),
-                        pending.CheckResult.Release.Version, pending.CheckResult.Release.Notes);
+                    SetStatus(() => Localization.Get(settings.DisplayLanguage, "UpdateAvailable", pending.CurrentVersion.ToString(3),
+                        pending.CheckResult.Release.Version, pending.CheckResult.Release.Notes));
                 }
                 else if (pending.UserInitiated && pending.CheckResult.Status == UpdateCheckStatus.Failed)
                 {
-                    status.Text = Localization.Get(settings.Language, "CheckFailed", Localization.Get(settings.Language, "NetworkFailure"));
+                    SetStatus(() => Localization.Get(settings.DisplayLanguage, "CheckFailed", Localization.Get(settings.DisplayLanguage, "NetworkFailure")));
                 }
             }
             else if (pending.PreparedUpdate != null)
@@ -233,31 +263,33 @@ namespace FoodBuffOverlay
                         UseShellExecute = false, CreateNoWindow = true
                     })) { }
                     control.SetUpdatePrepared();
-                    status.Text = Localization.Get(settings.Language, "UpdatePreparedStatus");
+                    SetStatus(() => Localization.Get(settings.DisplayLanguage, "UpdatePreparedStatus"));
                 }
                 catch (Exception)
                 {
-                    var error = Localization.Get(settings.Language,"UpdateFailureGeneric");
-                    control.SetUpdateError(error);
-                    status.Text = Localization.Get(settings.Language,"UpdateFailed",error);
+                    ReportUpdateFailure("UpdateFailureGeneric");
                 }
             }
             else if (!string.IsNullOrEmpty(pending.Error))
             {
-                var message = LocalizeUpdateError(pending.Error);
-                control.SetUpdateError(message);
-                status.Text = Localization.Get(settings.Language, "UpdateFailed", message);
+                ReportUpdateFailure(pending.Error);
             }
+        }
+
+        private void ReportUpdateFailure(string code)
+        {
+            control.SetUpdateError(() => LocalizeUpdateError(code));
+            SetStatus(() => Localization.Get(settings.DisplayLanguage, "UpdateFailed", LocalizeUpdateError(code)));
         }
 
         private string LocalizeUpdateError(string code)
         {
             switch (code)
             {
-                case "UpdateAssetMissing": return Localization.Get(settings.Language, "UpdateAssetMissing");
-                case "HashFailed": return Localization.Get(settings.Language, "HashFailed");
-                case "InvalidPackage": return Localization.Get(settings.Language, "InvalidPackage");
-                default: return Localization.Get(settings.Language, "UpdateFailureGeneric");
+                case "UpdateAssetMissing": return Localization.Get(settings.DisplayLanguage, "UpdateAssetMissing");
+                case "HashFailed": return Localization.Get(settings.DisplayLanguage, "HashFailed");
+                case "InvalidPackage": return Localization.Get(settings.DisplayLanguage, "InvalidPackage");
+                default: return Localization.Get(settings.DisplayLanguage, "UpdateFailureGeneric");
             }
         }
 

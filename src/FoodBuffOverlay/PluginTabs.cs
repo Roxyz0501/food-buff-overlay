@@ -23,7 +23,34 @@ namespace Roxyz.Act.UI
 
         public void SetLanguageFont(string family)
         {
-            Font = new Font(family, 9f, FontStyle.Bold);
+            if (!fonts.TryGetValue(family, out var font))
+                fonts.Add(family, font = new Font(family, 9f, FontStyle.Bold));
+            Font = font;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<string, Font> fonts =
+            new System.Collections.Generic.Dictionary<string, Font>(StringComparer.OrdinalIgnoreCase);
+
+        // Append all functional pages through this entry point, including dynamically loaded pages.
+        public void AddContentPage(TabPage page)
+        {
+            if (page == supportTab || !TabPages.Contains(supportTab)) TabPages.Add(page);
+            else InsertContentPage(TabPages.IndexOf(supportTab), page);
+        }
+
+        public void InsertContentPage(int index, TabPage page)
+        {
+            // .NET Framework TabPages.Insert needs the native control even in a hidden ACT pane.
+            var handle = Handle;
+            TabPages.Insert(index, page);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (!disposing) return;
+            foreach (var font in fonts.Values) font.Dispose();
+            fonts.Clear();
         }
 
         private void OnTabsMouseMove(object sender, MouseEventArgs e)

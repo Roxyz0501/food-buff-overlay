@@ -1,3 +1,4 @@
+using Roxyz.Act.UI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,26 +22,16 @@ namespace FoodBuffOverlay
         private readonly Label partyWarning = NewLabel(), partySuffix = NewLabel(), partyOpacityLabel = NewLabel(), partyOpacityValue = NewLabel();
         private readonly NumericUpDown partyMinutes = new NumericUpDown { Minimum = 1, Maximum = 60, Width = 74 };
         private readonly TrackBar partyOpacity = new TrackBar { Minimum = 35, Maximum = 100, TickFrequency = 5, Width = 220 };
-        private readonly CheckBox checkStartup = Check();
         private readonly NumericUpDown minutes = new NumericUpDown { Minimum = 1, Maximum = 60, Width = 74 };
         private readonly TrackBar opacity = new TrackBar { Minimum = 35, Maximum = 100, TickFrequency = 5, Width = 220 };
         private readonly Label opacityValue = NewLabel();
         private readonly Label connection = NewLabel();
-        private readonly ComboBox language = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };
-        private readonly Label languageLabel = NewLabel();
-        private readonly Label languageHint = NewLabel();
         private readonly Label warningLabel = NewLabel();
         private readonly Label minuteSuffix = NewLabel();
         private readonly Label opacityLabel = NewLabel();
         private readonly Label hint = NewLabel();
-        private readonly Label authorVersion = NewLabel();
         private readonly Label headerTitle = NewLabel();
         private readonly Label headerSubtitle = NewLabel();
-        private readonly Label updateTitle = NewLabel();
-        private readonly Label updateStatus = NewLabel();
-        private readonly Button checkNow = new Button();
-        private readonly Button updateNow = new Button();
-        private readonly Button later = new Button();
         private readonly Label supportHeading = NewLabel();
         private readonly Label supportBody = NewLabel();
         private readonly Label supportOptional = NewLabel();
@@ -48,7 +39,9 @@ namespace FoodBuffOverlay
         private readonly Label supportStatus = NewLabel();
         private readonly Roxyz.Act.UI.PluginTabs tabs;
         private readonly TabPage settingsTab = new TabPage();
-        private readonly TabPage updateTab = new TabPage();
+        private readonly PluginUpdatePage updateTab;
+        private readonly PluginLanguagePage languageTab;
+        private UpdatePageState updateState;
         private readonly TabPage supportTab = new TabPage();
         private readonly CheckBox partyLocked = Check(), partyPreview = Check();
         private bool loading = true;
@@ -77,34 +70,26 @@ namespace FoodBuffOverlay
             partyDuty.Checked = settings.PartyDutyOnly;
             partyMinutes.Value = settings.PartyWarningMinutes;
             partyOpacity.Value = settings.PartyOpacityPercent;
-            checkStartup.Checked = settings.CheckUpdatesOnStartup;
             minutes.Value = settings.WarningMinutes;
             opacity.Value = settings.OpacityPercent;
             opacityValue.Text = opacity.Value + "%";
             partyOpacityValue.Text = partyOpacity.Value + "%";
-            language.Items.AddRange(new object[]
-            {
-                new LanguageItem("English", Localization.English),
-                new LanguageItem("日本語", Localization.Japanese),
-                new LanguageItem("简体中文", Localization.Chinese),
-                new LanguageItem("한국어", Localization.Korean)
-            });
-            language.SelectedIndex = LanguageIndex(settings.Language);
+            languageTab = new PluginLanguagePage(settings.Language);
+            updateTab = new PluginUpdatePage(UpdateConfiguration.RepositoryName,
+                Assembly.GetExecutingAssembly().GetName().Version.ToString(3), settings.CheckUpdatesOnStartup, settings.Language);
 
             var header = BuildHeader();
             tabs = new Roxyz.Act.UI.PluginTabs(supportTab);
             settingsTab.BackColor = Color.White;
             settingsTab.Padding = new Padding(4);
-            updateTab.BackColor = Color.White;
-            updateTab.Padding = new Padding(4);
             supportTab.BackColor = Color.White;
             supportTab.Padding = new Padding(4);
             settingsTab.Controls.Add(BuildSettingsPanel());
-            updateTab.Controls.Add(BuildUpdatePanel());
             supportTab.Controls.Add(BuildSupportPanel());
-            tabs.TabPages.Add(settingsTab);
-            tabs.TabPages.Add(updateTab);
-            tabs.TabPages.Add(supportTab);
+            tabs.AddContentPage(settingsTab);
+            tabs.AddContentPage(languageTab);
+            tabs.AddContentPage(updateTab);
+            tabs.AddContentPage(supportTab);
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -121,13 +106,13 @@ namespace FoodBuffOverlay
             partyDuty.CheckedChanged += Changed;
             partyMinutes.ValueChanged += Changed;
             partyOpacity.ValueChanged += Changed;
-            checkStartup.CheckedChanged += Changed;
+            updateTab.StartupChanged += Changed;
             minutes.ValueChanged += Changed;
             opacity.ValueChanged += Changed;
-            language.SelectedIndexChanged += LanguageChanged;
-            checkNow.Click += delegate { CheckUpdatesRequested?.Invoke(this, EventArgs.Empty); };
-            updateNow.Click += delegate { InstallUpdateRequested?.Invoke(this, EventArgs.Empty); };
-            later.Click += delegate { SkipUpdateRequested?.Invoke(this, EventArgs.Empty); };
+            languageTab.LanguageChanged += LanguageChanged;
+            updateTab.CheckRequested += delegate { CheckUpdatesRequested?.Invoke(this, EventArgs.Empty); };
+            updateTab.InstallRequested += delegate { InstallUpdateRequested?.Invoke(this, EventArgs.Empty); };
+            updateTab.LaterRequested += delegate { SkipUpdateRequested?.Invoke(this, EventArgs.Empty); };
             supportButton.Click += OpenSupportLink;
             ApplyLanguage();
             loading = false;
@@ -149,7 +134,7 @@ namespace FoodBuffOverlay
         private Control BuildSettingsPanel()
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(20), AutoScroll = true };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 17 };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 16 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             AddWide(layout, personalTitle, 0);
@@ -161,9 +146,8 @@ namespace FoodBuffOverlay
             AddWide(layout, party, 8); AddWide(layout, partyLocked, 9); AddWide(layout, partyPreview, 10); AddWide(layout, partyDuty, 11);
             AddSettingRow(layout, partyWarning, partyMinutes, partySuffix, 12);
             AddSettingRow(layout, partyOpacityLabel, partyOpacity, partyOpacityValue, 13);
-            AddSettingRow(layout, languageLabel, language, languageHint, 14);
-            hint.ForeColor = Color.FromArgb(80, 80, 88); AddWide(layout, hint, 15);
-            connection.ForeColor = Color.FromArgb(42, 109, 158); AddWide(layout, connection, 16);
+            hint.ForeColor = Color.FromArgb(80, 80, 88); AddWide(layout, hint, 14);
+            connection.ForeColor = Color.FromArgb(42, 109, 158); AddWide(layout, connection, 15);
             panel.Controls.Add(layout);
             return panel;
         }
@@ -175,27 +159,6 @@ namespace FoodBuffOverlay
             flow.Controls.Add(detail);
             layout.Controls.Add(label, 0, row);
             layout.Controls.Add(flow, 1, row);
-        }
-
-        private Control BuildUpdatePanel()
-        {
-            var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(24), AutoScroll = true };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 4, Padding = new Padding(4) };
-            updateTitle.ForeColor = Color.FromArgb(34, 44, 61); updateTitle.Margin = new Padding(0, 0, 0, 14); layout.Controls.Add(updateTitle, 0, 0);
-            checkStartup.Margin = new Padding(0, 0, 0, 14); layout.Controls.Add(checkStartup, 0, 1);
-            var updateButtons = Flow(); StyleSecondary(checkNow); StylePrimary(updateNow); StyleSecondary(later); later.Visible = false;
-            updateButtons.Margin = new Padding(0, 0, 0, 12); updateButtons.Controls.Add(checkNow); updateButtons.Controls.Add(updateNow); updateButtons.Controls.Add(later); layout.Controls.Add(updateButtons, 0, 2);
-            updateStatus.AutoSize = false; updateStatus.Width = 700; updateStatus.Height = 150; updateStatus.ForeColor = Color.FromArgb(73, 83, 98); layout.Controls.Add(updateStatus, 0, 3);
-            layout.Controls.Add(authorVersion, 0, 4);
-            var repository = new LinkLabel { AutoSize = true, Text = "GitHub · " + UpdateConfiguration.RepositoryOwner + "/" + UpdateConfiguration.RepositoryName };
-            repository.LinkClicked += delegate
-            {
-                try { Process.Start(new ProcessStartInfo("https://github.com/" + UpdateConfiguration.RepositoryOwner + "/" + UpdateConfiguration.RepositoryName) { UseShellExecute = true }); }
-                catch { SetUpdateMessage("LinkFailed", T("BrowserFailure")); }
-            };
-            layout.Controls.Add(repository, 0, 5);
-            panel.Controls.Add(layout);
-            return panel;
         }
 
         private Control BuildSupportPanel()
@@ -225,7 +188,8 @@ namespace FoodBuffOverlay
             value.PartyOpacityPercent = partyOpacity.Value;
             value.OverlayEnabled = enabled.Checked; value.Locked = locked.Checked; value.PositionPreview = preview.Checked;
             value.WarningMinutes = (int)minutes.Value; value.OpacityPercent = opacity.Value;
-            value.Language = SelectedLanguage; value.CheckUpdatesOnStartup = checkStartup.Checked; value.Normalize();
+            if (value.HostedLanguage == null) value.Language = languageTab.LanguageCode;
+            value.CheckUpdatesOnStartup = updateTab.CheckOnStartup; value.Normalize();
         }
 
         public void SetConnection(FoodBuffState state, string localizedError)
@@ -238,33 +202,40 @@ namespace FoodBuffOverlay
 
         public void SetUpdateChecking()
         {
-            AvailableRelease = null; updateNow.Visible = false; later.Visible = false; checkNow.Enabled = false;
+            AvailableRelease = null; updateState = UpdatePageState.Checking;
             SetUpdateMessage("Checking");
         }
 
         public void ShowUpdateResult(UpdateCheckResult result, Version currentVersion, string skippedVersion)
         {
-            checkNow.Enabled = true; updateNow.Visible = false; later.Visible = false; AvailableRelease = result == null ? null : result.Release;
+            updateState = UpdatePageState.Ready; AvailableRelease = result == null ? null : result.Release;
             if (result == null) { SetUpdateMessage("CheckFailed", "Unknown result"); return; }
             switch (result.Status)
             {
                 case UpdateCheckStatus.RepositoryNotConfigured: SetUpdateMessage("RepositoryNotConfigured"); break;
                 case UpdateCheckStatus.NoStableRelease: SetUpdateMessage("NoStableRelease"); break;
                 case UpdateCheckStatus.UpToDate: SetUpdateMessage("UpToDate", currentVersion.ToString(3)); break;
-                case UpdateCheckStatus.Failed: SetUpdateMessage("CheckFailed", result.HttpStatus == 403 || result.HttpStatus == 429 ? T("ApiLimited", result.HttpStatus) : result.HttpStatus > 0 ? "HTTP " + result.HttpStatus : T("NetworkFailure")); break;
+                case UpdateCheckStatus.Failed: SetUpdateMessage("CheckFailed", new Func<string>(() => result.HttpStatus == 403 || result.HttpStatus == 429 ? T("ApiLimited", result.HttpStatus) : result.HttpStatus > 0 ? "HTTP " + result.HttpStatus : T("NetworkFailure"))); break;
                 case UpdateCheckStatus.UpdateAvailable:
                     if (result.Release != null && string.Equals(skippedVersion, result.Release.Version.ToString(), StringComparison.OrdinalIgnoreCase))
                     {
                         SetUpdateMessage("UpdateSkipped", result.Release.Version); break;
                     }
-                    SetUpdateMessage("UpdateAvailable", currentVersion.ToString(3), result.Release.Version, result.Release.Notes ?? T("ReleaseDetails"));
-                    updateNow.Visible = true; later.Visible = true; break;
+                    updateState = UpdatePageState.Available;
+                    SetUpdateMessage("UpdateAvailable", currentVersion.ToString(3), result.Release.Version, new Func<string>(() => result.Release.Notes ?? T("ReleaseDetails")));
+                    break;
             }
         }
 
-        public void SetUpdatePreparing() { updateNow.Enabled = false; later.Enabled = false; checkNow.Enabled = false; SetUpdateMessage("PreparingUpdate"); }
-        public void SetUpdatePrepared() { updateNow.Visible = false; later.Visible = false; checkNow.Enabled = false; SetUpdateMessage("UpdatePrepared"); }
-        public void SetUpdateError(string error) { updateNow.Enabled = true; later.Enabled = true; checkNow.Enabled = true; SetUpdateMessage("UpdateFailed", error); }
+        public void SetUpdatePreparing() { updateState = UpdatePageState.Preparing; SetUpdateMessage("PreparingUpdate"); }
+        public void SetUpdatePrepared() { updateState = UpdatePageState.Prepared; SetUpdateMessage("UpdatePrepared"); }
+        public void SetUpdateError(Func<string> error) { updateState = UpdatePageState.PrepareFailed; SetUpdateMessage("UpdateFailed", error); }
+
+        internal void SyncHostedLanguage()
+        {
+            languageTab.SetLanguage(settings.DisplayLanguage);
+            ApplyLanguage();
+        }
 
         private void LanguageChanged(object sender, EventArgs e)
         {
@@ -285,31 +256,28 @@ namespace FoodBuffOverlay
             var family = Localization.FontFamily(SelectedLanguage);
             ApplyFontFamily(this, family);
             headerTitle.Text = T("PluginTab"); headerSubtitle.Text = T("HeaderSubtitle");
-            headerTitle.Font = new Font(family, 17f, FontStyle.Bold); headerSubtitle.Font = new Font(family, 8.5f);
-            tabs.SetLanguageFont(family); settingsTab.Text = T("TabSettings"); updateTab.Text = T("TabUpdate"); supportTab.Text = T("TabSupport");
+            headerTitle.Font = GetFont(family, 17f, FontStyle.Bold); headerSubtitle.Font = GetFont(family, 8.5f);
+            tabs.SetLanguageFont(family); settingsTab.Text = T("TabSettings"); updateTab.SetLanguage(SelectedLanguage); supportTab.Text = T("TabSupport");
             personalTitle.Text = T("PersonalTitle"); partyTitle.Text = T("PartyTitle");
-            personalTitle.Font = new Font(family, 11f, FontStyle.Bold); partyTitle.Font = personalTitle.Font;
+            personalTitle.Font = GetFont(family, 11f, FontStyle.Bold); partyTitle.Font = personalTitle.Font;
             partyWarning.Text = T("WarningThreshold"); partySuffix.Text = T("MinutesSuffix");
             partyOpacityLabel.Text = T("Opacity"); partyDuty.Text = T("Duty");
             duty.Text = T("Duty"); party.Text = T("Party");
             partyLocked.Text = T("PartyLocked"); partyPreview.Text = T("PartyPreview");
             enabled.Text = T("Enabled"); locked.Text = T("Locked"); preview.Text = T("Preview");
             warningLabel.Text = T("WarningThreshold"); minuteSuffix.Text = T("MinutesSuffix"); opacityLabel.Text = T("Opacity");
-            languageLabel.Text = T("Language"); languageHint.Text = T("LanguageHint"); hint.Text = T("Hint");
-            authorVersion.Text = T("AuthorVersion", Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
-            updateTitle.Text = T("UpdateSection"); updateTitle.Font = new Font(family, 11f, FontStyle.Bold);
-            checkStartup.Text = T("CheckStartup"); checkNow.Text = T("CheckNow"); updateNow.Text = T("UpdateNow"); later.Text = T("Later");
-            supportHeading.Text = T("SupportHeading"); supportHeading.Font = new Font(family, 18f, FontStyle.Bold);
-            supportBody.Text = T("SupportBody"); supportBody.Font = new Font(family, 10f);
-            supportOptional.Text = T("SupportOptional"); supportOptional.Font = new Font(family, 9.5f, FontStyle.Bold);
-            supportButton.Text = T("SupportButton"); supportButton.Font = new Font(family, 11f, FontStyle.Bold);
+            hint.Text = T("Hint");
+            supportHeading.Text = T("SupportHeading"); supportHeading.Font = GetFont(family, 18f, FontStyle.Bold);
+            supportBody.Text = T("SupportBody"); supportBody.Font = GetFont(family, 10f);
+            supportOptional.Text = T("SupportOptional"); supportOptional.Font = GetFont(family, 9.5f, FontStyle.Bold);
+            supportButton.Text = T("SupportButton"); supportButton.Font = GetFont(family, 11f, FontStyle.Bold);
             RefreshUpdateMessage(); tabs.Invalidate(); Invalidate(true);
         }
 
         private void SetUpdateMessage(string key, params object[] args) { updateMessageKey = key; updateMessageArgs = args ?? new object[0]; RefreshUpdateMessage(); }
-        private void RefreshUpdateMessage() { updateStatus.Text = T(updateMessageKey, updateMessageArgs); }
+        private void RefreshUpdateMessage() { updateTab.ShowState(updateState, T(updateMessageKey, updateMessageArgs.Select(x => x is Func<string> translate ? translate() : x).ToArray())); }
         private string T(string key, params object[] args) => Localization.Get(SelectedLanguage, key, args);
-        private string SelectedLanguage => language.SelectedItem is LanguageItem ? ((LanguageItem)language.SelectedItem).Code : Localization.English;
+        private string SelectedLanguage => settings.HostedLanguage ?? languageTab.LanguageCode;
 
         private void OpenSupportLink(object sender, EventArgs e)
         {
@@ -327,30 +295,35 @@ namespace FoodBuffOverlay
             catch (Exception ex) { error = ex.GetBaseException().Message; return false; }
         }
 
-        private static void ApplyFontFamily(Control root, string family)
+        private void ApplyFontFamily(Control root, string family)
         {
-            root.Font = new Font(family, root.Font.Size, root.Font.Style);
+            if (root is PluginUpdatePage || root is PluginLanguagePage) return;
+            if (!(root is PluginTabs)) root.Font = GetFont(family, root.Font.Size, root.Font.Style);
             foreach (Control child in root.Controls) ApplyFontFamily(child, family);
         }
 
-        private static int LanguageIndex(string code)
+        private readonly Dictionary<Tuple<string, float, FontStyle>, Font> fonts = new Dictionary<Tuple<string, float, FontStyle>, Font>();
+
+        private Font GetFont(string family, float size, FontStyle style = FontStyle.Regular)
         {
-            switch (Localization.NormalizeLanguage(code)) { case Localization.Japanese: return 1; case Localization.Chinese: return 2; case Localization.Korean: return 3; default: return 0; }
+            var key = Tuple.Create(family, size, style);
+            Font font;
+            if (!fonts.TryGetValue(key, out font)) fonts.Add(key, font = new Font(family, size, style));
+            return font;
         }
 
-        private static void StylePrimary(Button button) { button.AutoSize = true; button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.FromArgb(202, 101, 20); button.ForeColor = Color.White; button.FlatAppearance.BorderColor = Color.FromArgb(164, 79, 12); button.FlatAppearance.MouseOverBackColor = Color.FromArgb(224, 126, 31); button.FlatAppearance.MouseDownBackColor = Color.FromArgb(174, 83, 13); button.Padding = new Padding(10, 3, 10, 3); button.Visible = false; }
-        private static void StyleSecondary(Button button) { button.AutoSize = true; button.FlatStyle = FlatStyle.Flat; button.BackColor = Color.White; button.ForeColor = Color.FromArgb(63, 76, 95); button.FlatAppearance.BorderColor = Color.FromArgb(171, 181, 196); button.Padding = new Padding(10, 3, 10, 3); }
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (!disposing) return;
+            foreach (var font in fonts.Values) font.Dispose();
+            fonts.Clear();
+        }
+
         private static CheckBox Check() => new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(48, 61, 80) };
         private static Label NewLabel() => new Label { AutoSize = true, Anchor = AnchorStyles.Left };
         private static FlowLayoutPanel Flow() => new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
         private static void AddWide(TableLayoutPanel layout, Control control, int row) { layout.Controls.Add(control, 0, row); layout.SetColumnSpan(control, 2); }
 
-        private sealed class LanguageItem
-        {
-            public LanguageItem(string label, string code) { Label = label; Code = code; }
-            public string Label { get; private set; }
-            public string Code { get; private set; }
-            public override string ToString() => Label;
-        }
     }
 }

@@ -31,6 +31,8 @@ namespace FoodBuffOverlay
         public int Top { get; set; } = 120;
         public int Width { get; set; } = 270;
         public int Height { get; set; } = 68;
+        internal string HostedLanguage { get; set; }
+        internal string DisplayLanguage => HostedLanguage ?? Language;
         public string Language { get; set; }
         public bool CheckUpdatesOnStartup { get; set; } = true;
         public string SkippedVersion { get; set; }

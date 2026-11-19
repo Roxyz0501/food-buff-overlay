@@ -43,7 +43,7 @@ internal static class Program
             VerifySettingsPersistenceLifecycle();
             VerifyBackgroundTaskShutdown();
             VerifySupportLink();
-            VerifyLocalizedUi();
+            VerifyLocalizedUi(args.FirstOrDefault(x => x.EndsWith("RoxyzsActPlugin.dll", StringComparison.OrdinalIgnoreCase)));
             VerifyParty();
             var placement = new PluginSettings { PartyLeft = Screen.PrimaryScreen.WorkingArea.Left + 40, PartyTop = Screen.PrimaryScreen.WorkingArea.Top + 60 };
             using (var partyWindow = new PartyForm(placement))
@@ -371,23 +371,63 @@ internal static class Program
         }
     }
 
-    private static void VerifyLocalizedUi()
+    private static void VerifyLocalizedUi(string portalDll)
     {
-        var settings = new PluginSettings { Language = "en" };
+        var settings = new PluginSettings { Language = "en", PartyPreview = true };
+        using (var window = new Form { ClientSize = new System.Drawing.Size(360, 420), StartPosition = FormStartPosition.Manual, Location = new System.Drawing.Point(-16000,-16000), ShowInTaskbar = false })
+        using (var page = new TabPage())
+        using (var status = new Label())
         using (var control = new SettingsControl(settings))
+        using (var partyOverlay = new PartyForm(settings))
         {
-            var all = Descendants(control).ToList();
-            var tabs = all.OfType<TabControl>().Single();
-            var combo = all.OfType<ComboBox>().Single();
-            Assert(!Descendants(tabs.TabPages[0]).Any(x => x.Text.Contains("Roxyz0501")), "Author belongs on Updates");
-            Assert(Descendants(tabs.TabPages[1]).OfType<LinkLabel>().Single().Text.Contains("food-buff-overlay"), "Repository link missing");
-            Assert(tabs.TabPages.Count == 3, "Settings, Updates, and Support must be separate tabs.");
-            Assert(tabs.TabPages[1].Text == "Updates" && tabs.TabPages[2].Text == "Support", "English update/support tabs are incorrect.");
-            combo.SelectedIndex = 1; Assert(tabs.TabPages[1].Text == "更新" && tabs.TabPages[2].Text == "支援", "Immediate Japanese switch failed.");
-            combo.SelectedIndex = 2; Assert(tabs.TabPages[1].Text == "更新" && tabs.TabPages[2].Text == "支持", "Immediate Chinese switch failed.");
-            combo.SelectedIndex = 3; Assert(tabs.TabPages[1].Text == "업데이트" && tabs.TabPages[2].Text == "후원", "Immediate Korean switch failed.");
-            var supportText = string.Join("\n", Descendants(tabs.TabPages[2]).Select(x => x.Text));
-            Assert(supportText.Contains("Roxyz0501") && supportText.Contains(SettingsControl.SupportUrl), "Localized support content is incomplete.");
+            var outer = new TabControl { Dock = DockStyle.Fill };
+            window.Controls.Add(outer); outer.TabPages.Add(page); page.Controls.Add(control); window.Show();
+            var tabs = Descendants(control).OfType<Roxyz.Act.UI.PluginTabs>().Single();
+            var language = tabs.TabPages.OfType<Roxyz.Act.UI.PluginLanguagePage>().Single();
+            var updates = tabs.TabPages.OfType<Roxyz.Act.UI.PluginUpdatePage>().Single();
+            var support = tabs.TabPages[3];
+            Assert(tabs.TabCount == 4 && tabs.TabPages[1] == language && tabs.TabPages[2] == updates, "Standalone tabs");
+            Assert(Descendants(updates).OfType<LinkLabel>().Single().Text.Contains("food-buff-overlay"), "Repository link");
+            tabs.AddContentPage(new TabPage("Extra"));
+            Assert(tabs.TabPages[4] == support, "Dynamic page displaced Support");
+            control.SettingsChanged += delegate { control.ApplyTo(settings); };
+            var combo = Descendants(language).OfType<ComboBox>().Single();
+            control.SetUpdateChecking();
+            foreach (var index in new[] { 1, 2, 3, 0, 1 })
+            {
+                combo.SelectedIndex = index;
+                string code = language.LanguageCode;
+                Assert(settings.Language == code && updates.Text == Localization.Get(code, "TabUpdate") &&
+                    support.Text == Localization.Get(code, "TabSupport"), "Standalone language");
+                updates.SetLanguage(code);
+                updates.SetLanguage(code);
+                tabs.SelectedTab = updates; Application.DoEvents();
+                using (var image = new System.Drawing.Bitmap(updates.Width, updates.Height)) updates.DrawToBitmap(image, updates.ClientRectangle);
+            }
+
+            var entry = new FoodBuffOverlayPlugin();
+            Action<string,object> bind = (name,value) => entry.GetType().GetField(name,
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(entry,value);
+            bind("settings", settings); bind("control",control); bind("pluginPage",page); bind("status",status);
+            if (portalDll != null)
+            {
+                var childTabs = System.Reflection.Assembly.LoadFrom(portalDll).GetType("RoxyzsActPlugin.ChildTabs",true);
+                childTabs.GetMethod("HideManagementPages",System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(null,new object[]{page});
+                Assert(tabs.TabCount == 2 && !tabs.TabPages.Contains(updates) && !tabs.TabPages.Contains(language) && !tabs.TabPages.Contains(support), "Portal management page filtering");
+            }
+            bind("partyForm", partyOverlay);
+            var original = PluginSettings.Serialize(settings);
+            foreach (var code in new[] { "ko", "en", "zh-CN", "ja", "en", "en" })
+            {
+                entry.SetHostedLanguage(code);
+                control.ApplyTo(settings);
+                Assert(settings.DisplayLanguage == code && settings.Language == "ja" && PluginSettings.Serialize(settings).SequenceEqual(original), "Hosted language leaked into config");
+                Assert(partyOverlay.AccessibleDescription.Contains(Localization.Get(code, "OverlayMissing")), "Hosted party overlay translation");
+                Assert(status.Text == Localization.Get(code, "Started") && Descendants(updates).Any(x => x.Text == Localization.Get(code, "Checking")), "Hosted status translation");
+            }
+            entry.SetHostedLanguage(null);
+            Assert(language.LanguageCode == "ja" && settings.DisplayLanguage == "ja", "Restore standalone language");
         }
     }
 

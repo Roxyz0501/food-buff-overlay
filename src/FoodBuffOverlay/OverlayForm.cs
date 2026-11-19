@@ -38,7 +38,7 @@ namespace FoodBuffOverlay
             DoubleBuffered = true;
             MinimumSize = new Size(180, 48);
             MaximumSize = new Size(620, 180);
-            Font = new Font(Localization.FontFamily(settings.Language), 9f);
+            Font = new Font(Localization.FontFamily(settings.DisplayLanguage), 9f);
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw | ControlStyles.UserPaint, true);
             boundsTimer = new Timer { Interval = 450 };
@@ -155,13 +155,13 @@ namespace FoodBuffOverlay
             var preview = settings.PositionPreview && state.Condition != FoodBuffCondition.Missing && state.Condition != FoodBuffCondition.Expiring;
             var missing = !preview && state.Condition == FoodBuffCondition.Missing;
             PaintFrame(e.Graphics, ClientSize, missing, settings.Locked);
-            var main = preview ? Localization.Get(settings.Language, "OverlayPreview") : missing
-                ? Localization.Get(settings.Language, "OverlayMissing")
-                : Localization.Get(settings.Language, "OverlayRemaining", FormatRemaining(state.Remaining));
-            var detail = preview ? Localization.Get(settings.Language, "OverlayPreviewDetail") : missing
-                ? Localization.Get(settings.Language, "OverlayMissingDetail")
-                : Localization.Get(settings.Language, "OverlayExpiringDetail");
-            var family = Localization.FontFamily(settings.Language);
+            var main = preview ? Localization.Get(settings.DisplayLanguage, "OverlayPreview") : missing
+                ? Localization.Get(settings.DisplayLanguage, "OverlayMissing")
+                : Localization.Get(settings.DisplayLanguage, "OverlayRemaining", FormatRemaining(state.Remaining));
+            var detail = preview ? Localization.Get(settings.DisplayLanguage, "OverlayPreviewDetail") : missing
+                ? Localization.Get(settings.DisplayLanguage, "OverlayMissingDetail")
+                : Localization.Get(settings.DisplayLanguage, "OverlayExpiringDetail");
+            var family = Localization.FontFamily(settings.DisplayLanguage);
             var mainSize = Math.Max(11f, Math.Min(22f, Height * 0.27f));
             using (var mainFont = new Font(family, mainSize, FontStyle.Bold))
             using (var detailFont = new Font(family, Math.Max(7f, Math.Min(10f, Height * 0.13f))))
